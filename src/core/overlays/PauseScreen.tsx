@@ -1,0 +1,1 @@
+//PauseScreen is a component that displays the pause screen
