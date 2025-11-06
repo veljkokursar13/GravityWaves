@@ -6,6 +6,7 @@ import { useFonts } from '@/hooks/useFonts';
 import { ThemeProvider } from '@/context/themeProvider';
 import DeepSpace from '@/context/themeComponents/DeepSpace';
 import { Stars } from '@/context/themeComponents/Stars';
+import { AudioProvider } from '@/audio/AudioProvider';
 
 export default function RootShellLayout() {
   const { fontsLoaded, error } = useFonts();
@@ -34,9 +35,15 @@ export default function RootShellLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <DeepSpace />
-        <Stars />
-        <Slot />
+        <AudioProvider
+          preload={[
+            { id: 'gravity_waves_soundtrack', source: require('../src/assets/audio/gravity_waves_soundtrack.mp3'), kind: 'music' },
+          ]}
+        >
+          <DeepSpace />
+          <Stars />
+          <Slot />
+        </AudioProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

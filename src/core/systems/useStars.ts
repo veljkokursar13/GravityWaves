@@ -19,7 +19,7 @@ export type StarsLayers = {
 
 const NEAR_COUNT = 30;
 const FAR_COUNT = 100;
-const BACKGROUND_COUNT = 200;
+const BACKGROUND_COUNT = 350;
 
 const NEAR_SPEED = 60; // px/sec
 const FAR_SPEED = 30;  // px/sec
@@ -59,9 +59,9 @@ export const useStarsLayers = (): StarsLayers => {
 
   const initial = useMemo(() => {
     return {
-      near: generateStars(NEAR_COUNT, width, height, colors.text, 2.5, 4.5, 'near'),
-      far: generateStars(FAR_COUNT, width, height, colors.text, 1.5, 3.0, 'far'),
-      background: generateStars(BACKGROUND_COUNT, width, height, colors.text, 1.0, 2.0, 'bg'),
+      near: generateStars(NEAR_COUNT, width, height, colors.text, 1.2, 2.2, 'near'),
+      far: generateStars(FAR_COUNT, width, height, colors.text, 1.0, 2.0, 'far'),
+      background: generateStars(BACKGROUND_COUNT, width, height, colors.text, 0.8, 1.8, 'bg'),
     };
   }, [colors.text, width, height]);
 

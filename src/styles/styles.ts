@@ -14,18 +14,23 @@ const styles = StyleSheet.create({
   },
   mainMenuContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)', 
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
-},
-mainMenuTitle: {
-  fontFamily: 'AstronValley',
-  fontSize: 40,
-  color: '#fff',
   },
+
+mainMenuTitle: {
+  fontFamily: 'AstronValleyBold',
+  fontSize: 36,
+  color: '#fff',
+  textAlign: 'center',
+  marginBottom: 16, 
+  textShadowColor: '#000',
+  textShadowOffset: { width: 1, height: 1 },
+  textShadowRadius: 2,
+ },
   mainMenuDescription: {
-    fontFamily: 'Quantico',
+    fontFamily: 'OrbitronBold',
     fontSize: 16,
     color: '#ffffff',
     opacity: 0.9,

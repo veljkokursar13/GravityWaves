@@ -17,7 +17,6 @@ export const useFonts = () => {
     QuanticoBold: require('../assets/fonts/Quantico-Bold.ttf'),
     QuanticoItalic: require('../assets/fonts/Quantico-Italic.ttf'),
     QuanticoBoldItalic: require('../assets/fonts/Quantico-BoldItalic.ttf'),
-
   });
 
   return { fontsLoaded, error };
