@@ -11,15 +11,19 @@ type Store = {
     setScore: (score: number) => void;
     appState: AppState;
     setAppState: (state: AppState) => void;
+    paused: boolean;
+    setPaused: (paused: boolean) => void;
 }
 
 export const useStore = create<Store>()(
     persist(
         (set) => ({
             score: 0,
-            setScore: (score) => set({ score }),
+            setScore: (score: number) => set({ score }),
             appState: 'menu',
-            setAppState: (state) => set({ appState: state }),
+            setAppState: (state: AppState) => set({ appState: state }),
+            paused: false,
+            setPaused: (paused: boolean) => set({ paused }),
         }),
         {
             name: 'app-store',
@@ -27,6 +31,7 @@ export const useStore = create<Store>()(
             partialize: (state) => ({
                 score: state.score,
                 appState: state.appState,
+                paused: state.paused,
             }),
         }
     )
