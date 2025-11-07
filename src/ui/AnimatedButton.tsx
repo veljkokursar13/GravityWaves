@@ -8,10 +8,10 @@ export const AnimatedButton = ({ children, onPress }: { children: React.ReactNod
   const { fontsLoaded } = useFonts();
   return (
     <View style={styles.container}>
-      <LinearGradient pointerEvents="none" colors={['rgb(9,48,40)', 'rgb(35,122,87)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.topEdge} />
-      <LinearGradient pointerEvents="none" colors={['rgb(9,48,40)', 'rgb(35,122,87)']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 0 }} style={styles.bottomEdge} />
-      <LinearGradient pointerEvents="none" colors={['rgb(9,48,40)', 'rgb(35,122,87)']} start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }} style={styles.leftEdge} />
-      <LinearGradient pointerEvents="none" colors={['rgb(9,48,40)', 'rgb(35,122,87)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.rightEdge} />
+      <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.topEdge} />
+      <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 0 }} style={styles.bottomEdge} />
+      <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }} style={styles.leftEdge} />
+      <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.rightEdge} />
 
       <Pressable onPress={onPress} style={({ pressed }: { pressed: boolean }) => [styles.inner, pressed && styles.innerPressed]}>
         <RNText style={styles.text}>{children}</RNText>
@@ -20,7 +20,7 @@ export const AnimatedButton = ({ children, onPress }: { children: React.ReactNod
   );
 }
 
-const BORDER = 3;
+const BORDER = 2;
 
 const styles = StyleSheet.create({
   container: {

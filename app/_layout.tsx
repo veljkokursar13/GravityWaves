@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/context/themeProvider';
 import DeepSpace from '@/context/themeComponents/DeepSpace';
 import { Stars } from '@/context/themeComponents/Stars';
 import { AudioProvider } from '@/audio/AudioProvider';
+import { AudioControls } from '@/components/AudioControls';
 
 export default function RootShellLayout() {
   const { fontsLoaded, error } = useFonts();
@@ -42,6 +43,7 @@ export default function RootShellLayout() {
         >
           <DeepSpace />
           <Stars />
+          <AudioControls />
           <Slot />
         </AudioProvider>
       </ThemeProvider>
