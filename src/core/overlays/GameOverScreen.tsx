@@ -1,0 +1,1 @@
+//GameOverScreen is a component that displays the game over screen

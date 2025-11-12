@@ -1,12 +1,13 @@
 {
   "expo": {
-    "name": "gravity-waves",
+    "name": "Gravity Waves",
     "slug": "gravity-waves",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "scheme": "gravity-waves",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
