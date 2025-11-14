@@ -7,7 +7,7 @@ export type Image = {
     width: number;
     height: number;
 };
-export type Images = {
+export type Images= {
     id: string;
     images: Image[];
 };
