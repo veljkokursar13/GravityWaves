@@ -21,13 +21,13 @@ export default function PauseOverlay() {
   return (
     <View style={overlayStyles.overlay} pointerEvents="auto">
       {hasBlur ? (
-        <BlurComponent intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <BlurComponent intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
       ) : (
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]} />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.1)' }]} />
       )}
       <View style={PauseOverlayLocalStyles.layoutContainer}>
         <Text style={PauseOverlayLocalStyles.title}>Paused</Text>
-        <View style={PauseOverlayLocalStyles.buttonsResume}>
+        <View style={PauseOverlayLocalStyles.buttonsResume}> 
           <PauseButton isPaused={true} onPress={() => setAppState('game')} />
         </View>
       </View>

@@ -14,11 +14,11 @@ export default function Ship({ ship, velocityX = 0 }: ShipProps) {
   if (!shipImage) return null;
 
   // Banking/leaning effect - skew creates perspective (no rotation)
-  const maxSkew = 0.2; // Increased for more visible banking
-  const skewX = Math.max(-maxSkew, Math.min(maxSkew, velocityX * 0.003));
+  const maxSkew = 0.05; // Minimal banking for flat 2D asset
+  const skewX = Math.max(-maxSkew, Math.min(maxSkew, velocityX * 0.0015));
   
   // Slight scale on X axis for depth effect
-  const scaleX = 1 - Math.abs(velocityX * 0.0008);
+  const scaleX = 1 - Math.abs(velocityX * 0.00002);
 
   return (
     <Group
@@ -26,7 +26,7 @@ export default function Ship({ ship, velocityX = 0 }: ShipProps) {
         { translateX: ship.x },
         { translateY: ship.y },
         { skewX: skewX },                         // Banking/leaning effect only
-        { scaleX: Math.max(0.8, scaleX) },       // Depth effect
+        { scaleX: Math.max(0.98, scaleX) },      // Minimal depth effect
       ]}
     >
       <Image

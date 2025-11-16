@@ -1,55 +1,138 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Drone, DronePattern } from './types';
-import {Dimensions} from 'react-native';
-const { width, height } = Dimensions.get('window');
+import { useWindowDimensions } from 'react-native';
+import { WaveConfig } from '@/core/systems/waves';
+
 interface DronesHook {
     drones: Drone[];
     updateDrones: (delta: number, shipX: number, shipY: number) => void;
+    removeDrone: (id: string) => void;
+    getWaveProgress: () => { spawned: number; remaining: number; total: number };
+    drainPassed: () => string[];
+    resetWave: () => void;
 }
 
-export function useDrones(): DronesHook {
+export function useDrones(waveConfig?: WaveConfig): DronesHook {
+    const { width, height } = useWindowDimensions();
     const [drones, setDrones] = useState<Drone[]>([]);
+    const [spawned, setSpawned] = useState<number>(0);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const spawnedRef = useRef<number>(0);
+    const passedQueueRef = useRef<string[]>([]);
+    
+    const config = waveConfig || {
+        wave: 1,
+        enemies: 10,
+        spawnRate: 3000,
+        speedMultiplier: 1.0,
+        hpMultiplier: 1.0,
+        pattern: 'snake' as DronePattern
+    };
 
-    // Spawn drones periodically
+    // Spawn drones using wave config (one per tick until target reached)
     useEffect(() => {
+        // reset state on config change
+        setDrones([]);
+        setSpawned(0);
+        spawnedRef.current = 0;
+        passedQueueRef.current = [];
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
         const interval = setInterval(() => {
-            // Spawn 5 drones at once in a formation
-            const newDrones = spawnDroneFormation(width, height, 5); 
+            if (spawnedRef.current >= config.enemies) {
+                clearInterval(interval);
+                intervalRef.current = null;
+                return;
+            }
+            const newDrones = spawnDroneFormation(width, height, 1, config);
+            spawnedRef.current += newDrones.length;
+            setSpawned(prev => prev + newDrones.length);
             setDrones(prev => [...prev, ...newDrones]);
-        }, 3000); // Spawn every 3 seconds
-        return () => clearInterval(interval);
-    }, []);
+        }, config.spawnRate);
+        intervalRef.current = interval;
+        return () => {
+            clearInterval(interval);
+            intervalRef.current = null;
+        };
+    }, [config.spawnRate, config.enemies, config.pattern, config.speedMultiplier, width, height]);
 
     // Update drone positions
     const updateDrones = (delta: number, shipX: number, shipY: number) => {
-        setDrones(prev => 
-            prev
-                .map(drone => updateDronePosition(drone, delta, shipX, shipY, width, height))
-                .filter(drone => drone.y < height + 100) // Remove off-screen drones
-        );
+        setDrones(prev => {
+            const updated: Drone[] = [];
+            for (const d of prev) {
+                const nd = updateDronePosition(d, delta, shipX, shipY, width, height);
+                // Remove if off-screen bottom (passed ship) and queue penalty
+                if (nd.y >= height + 50) {
+                    passedQueueRef.current.push(nd.id);
+                    continue;
+                }
+                updated.push(nd);
+            }
+            return updated;
+        });
     };
 
-    return { drones, updateDrones };
+    const removeDrone = (id: string) => {
+        setDrones(prev => prev.filter(drone => drone.id !== id));
+    };
+
+    const getWaveProgress = () => {
+        return {
+            spawned,
+            remaining: drones.length,
+            total: config.enemies,
+        };
+    };
+
+    const drainPassed = () => {
+        const copy = [...passedQueueRef.current];
+        passedQueueRef.current = [];
+        return copy;
+    };
+
+    const resetWave = () => {
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+        setDrones([]);
+        setSpawned(0);
+        spawnedRef.current = 0;
+        passedQueueRef.current = [];
+    };
+
+    return { drones, updateDrones, removeDrone, getWaveProgress, drainPassed, resetWave };
 }
 
-function spawnDroneFormation(width: number, height: number, count: number): Drone[] {
+function spawnDroneFormation(
+    width: number, 
+    height: number, 
+    count: number,
+    config: WaveConfig
+): Drone[] {
+    // Use config.pattern instead of hardcoded 'snake'
+    // Use config.speedMultiplier: speed: 50 * config.speedMultiplier
     const drones: Drone[] = [];
     const droneSize = 40;
-    const spacing = 60; // Horizontal spacing between drones
-    const totalWidth = (count - 1) * spacing;
-    const startX = (width - totalWidth) / 2;
     
     for (let i = 0; i < count; i++) {
         const id = `${Date.now()}-${i}`;
-        const pattern: DronePattern = 'snake';
+        const pattern: DronePattern = config.pattern;
+        
+        // Initial position: center horizontally, staggered vertically
+        const initialX = width / 2;
+        const initialY = -droneSize - (i * 40);
         
         const drone: Drone = {
             id,
-            x: droneSize / 2, // Start from left edge
-            y: -droneSize - (i * 40), // Stagger vertically for snake effect
+            x: initialX,
+            y: initialY,
             width: droneSize,
             height: droneSize,
-            speed: 50,
+            speed: 50 * config.speedMultiplier,
             direction: 90,
             rotation: 0,
             pattern,
