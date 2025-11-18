@@ -1,81 +1,95 @@
-// Input handling for the ship
-import { useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { Ship } from './types';
 
-interface ShipControlsProps {
+type ShipControlsProps = {
   ship: Ship;
   onMove: (x: number, y: number) => void;
   bounds: { width: number; height: number };
-}
+};
 
-export function useShipControls({ ship, onMove, bounds }: ShipControlsProps) {
-  // Tunables: offset and capped speed for smooth follow
-  const offsetX = ship.width * 0.5;
-  const offsetY = ship.height * 0.7;
-  const maxSpeed = 2200; // px/s, cap per-frame movement (faster response)
-  const snapDistance = 1.5; // px
+export default function ShipControlls({ ship, onMove, bounds }: ShipControlsProps) {
+  const offsetX = ship.width / 2;
+  const offsetY = ship.height / 2;
 
+  const isTouchingRef = useRef(false);
   const targetRef = useRef<{ x: number; y: number } | null>(null);
   const frameRef = useRef<number | null>(null);
-  const posRef = useRef<{ x: number; y: number }>({ x: ship.x, y: ship.y });
   const lastTimeRef = useRef<number | null>(null);
+  const posRef = useRef<{ x: number; y: number }>({ x: ship.x, y: ship.y });
+  const velRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Keep latest position in a ref for the animation loop
+  // keep internal position in sync with external ship state
   useEffect(() => {
     posRef.current = { x: ship.x, y: ship.y };
   }, [ship.x, ship.y]);
 
-  // Faster easing toward the target (more responsive when far)
-  const easeOutExpo = (t: number) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
-  const easedStepRatio = (dist: number, dt: number) => {
-    // base linear step from speed
-    const base = Math.min(1, (maxSpeed * dt) / Math.max(1, dist));
-    // boost more aggressively when far (up to +80%)
-    const farBoost = 1 + Math.min(1, dist / 120) * 0.8;
-    let boosted = Math.min(1, base * farBoost);
-    // extra kick for large finger jumps
-    if (dist > 160) boosted = Math.min(1, boosted + 0.15);
-    return easeOutExpo(boosted);
-  };
-
   const step = useCallback(() => {
-    const target = targetRef.current;
-    if (!target) {
-      frameRef.current = null;
-      return;
-    }
     const now = Date.now();
     if (lastTimeRef.current == null) {
       lastTimeRef.current = now;
       frameRef.current = requestAnimationFrame(step);
       return;
     }
-    const dt = Math.min(0.03, Math.max(0, (now - lastTimeRef.current) / 1000));
+    const dt = Math.min(0.016, Math.max(0, (now - lastTimeRef.current) / 1000));
     lastTimeRef.current = now;
 
-    const from = posRef.current;
-    const dx = target.x - from.x;
-    const dy = target.y - from.y;
-    // Eased interpolation toward target
+    const target = targetRef.current;
+    if (!target) {
+      // no target -> stop animating
+      frameRef.current = null;
+      return;
+    }
+
+    // Smooth spring-damper toward target with capped velocity
+    const { x: cx, y: cy } = posRef.current;
+    const { x: vx, y: vy } = velRef.current;
+    const dx = target.x - cx;
+    const dy = target.y - cy;
     const dist = Math.hypot(dx, dy);
-    const ratio = dist > 0 ? easedStepRatio(dist, dt) : 1;
-    const nextX = from.x + dx * ratio;
-    const nextY = from.y + dy * ratio;
 
-    const clampedX = Math.max(
-      ship.width / 2,
-      Math.min(bounds.width - ship.width / 2, nextX)
-    );
-    const clampedY = Math.max(
-      ship.height / 2,
-      Math.min(bounds.height - ship.height / 2, nextY)
-    );
+    // Snap if very close to target
+    if (dist < 0.5 && Math.hypot(vx, vy) < 1) {
+      posRef.current = { x: target.x, y: target.y };
+      velRef.current = { x: 0, y: 0 };
+      onMove(target.x, target.y);
+      frameRef.current = requestAnimationFrame(step);
+      return;
+    }
 
-    onMove(clampedX, clampedY);
-    // keep internal state in sync to avoid a one-frame lag
+    // Tunables
+    const stiffness = 38.0; // higher = snappier
+    const damping = 12.6;   // ~critical damping for this stiffness
+    const maxSpeed = 4800;  // px/s cap
+
+    // Acceleration = k*(target-pos) - c*vel
+    const ax = dx * stiffness - vx * damping;
+    const ay = dy * stiffness - vy * damping;
+
+    // Integrate velocity
+    let nvx = vx + ax * dt;
+    let nvy = vy + ay * dt;
+
+    // Cap velocity
+    const vmag = Math.hypot(nvx, nvy);
+    if (vmag > maxSpeed) {
+      nvx = (nvx / vmag) * maxSpeed;
+      nvy = (nvy / vmag) * maxSpeed;
+    }
+
+    // Integrate position
+    let nx = cx + nvx * dt;
+    let ny = cy + nvy * dt;
+
+    // clamp to bounds
+    const clampedX = Math.max(offsetX, Math.min(bounds.width - offsetX, nx));
+    const clampedY = Math.max(offsetY, Math.min(bounds.height - offsetY, ny));
+
     posRef.current = { x: clampedX, y: clampedY };
+    velRef.current = { x: nvx, y: nvy };
+    onMove(clampedX, clampedY);
+
     frameRef.current = requestAnimationFrame(step);
-  }, [bounds.height, bounds.width, maxSpeed, onMove, ship.height, ship.width, snapDistance]);
+  }, [bounds.height, bounds.width, offsetX, offsetY, onMove]);
 
   const ensureLoop = useCallback(() => {
     if (frameRef.current == null) {
@@ -84,28 +98,42 @@ export function useShipControls({ ship, onMove, bounds }: ShipControlsProps) {
     }
   }, [step]);
 
-  const handleTouch = useCallback(
-    (event: any) => {
-      const { locationX, locationY } = event.nativeEvent;
+  const handle = useCallback((event: any) => {
+    if (!event?.nativeEvent) return;
+    const { touches, changedTouches } = event.nativeEvent;
+    const primary =
+      (Array.isArray(touches) && touches[0]) ||
+      (Array.isArray(changedTouches) && changedTouches[0]) ||
+      event.nativeEvent;
+    const lx = (typeof primary.locationX === 'number' ? primary.locationX : primary.pageX) ?? 0;
+    const ly = (typeof primary.locationY === 'number' ? primary.locationY : primary.pageY) ?? 0;
 
-      //keep the ship slightly above the finger
-      const desiredX = locationX;
-      const desiredY = locationY - ship.height * 0.5;
-      targetRef.current = { x: desiredX, y: desiredY };
-      ensureLoop();
-    },
-    [bounds.height, bounds.width, ensureLoop, offsetX, offsetY, ship.height, ship.width]
-  );
+    let targetX = lx;
+    let targetY = ly;
 
-  const handleTouchEnd = useCallback(() => {
+    // clamp to screen bounds
+    targetX = Math.max(offsetX, Math.min(bounds.width - offsetX, targetX));
+    targetY = Math.max(offsetY, Math.min(bounds.height - offsetY, targetY));
+
+    // set target and ensure animation loop runs
+    targetRef.current = { x: targetX, y: targetY };
+    ensureLoop();
+  }, [bounds.height, bounds.width, ensureLoop, offsetX, offsetY]);
+
+  const onTouchStart = useCallback((e: any) => { isTouchingRef.current = true; handle(e); }, [handle]);
+  const onTouchMove = useCallback((e: any) => { handle(e); }, [handle]);
+  const onTouchEnd = useCallback(() => {
+    isTouchingRef.current = false;
     targetRef.current = null;
     if (frameRef.current != null) {
       cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
     }
     lastTimeRef.current = null;
+    velRef.current = { x: 0, y: 0 };
   }, []);
 
+  // cleanup on unmount
   useEffect(() => {
     return () => {
       if (frameRef.current != null) {
@@ -115,9 +143,5 @@ export function useShipControls({ ship, onMove, bounds }: ShipControlsProps) {
     };
   }, []);
 
-  return { handleTouch, handleTouchEnd };
+  return { onTouchStart, onTouchMove, onTouchEnd, isTouchingRef };
 }
-
-
-
-

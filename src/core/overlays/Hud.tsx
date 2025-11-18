@@ -21,24 +21,22 @@ export default function Hud({ waveId }: Props) {
 const styles = StyleSheet.create({
     hud: {
         position: 'absolute',
-        top: 12,
-        left: 12,
+        bottom: 12,
         zIndex: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
     },
     pill: {
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 10,
-        backgroundColor: 'rgba(0,0,0,0.35)',
-        // subtle shadow
-        shadowColor: '#000',
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 3,
+        backgroundColor: 'transparent',
+        borderWidth: 0.3,
+        borderColor: '#fff',
     },
     line: {
-        fontSize: 14,
+        fontSize: 20,
         color: '#fff',
         fontFamily: 'OrbitronBold',
     },

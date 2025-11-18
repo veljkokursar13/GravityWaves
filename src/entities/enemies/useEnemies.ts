@@ -76,11 +76,8 @@ export function useEnemies({ bounds, shipPosition, onEnemyPassed }: UseEnemiesPr
             shipPosition?.x,
             shipPosition?.y
           );
-          if (n.y > bounds.height + 100) {
+          if (isEnemyOffscreen(n, bounds)) {
             passedIds.push(n.id);
-            continue;
-          }
-          if (n.x < -100 || n.x > bounds.width + 100) {
             continue;
           }
           updated.push(n);

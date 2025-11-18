@@ -4,39 +4,45 @@ import { useStore } from '@/store/store';
 import { useEffect, useState } from 'react';
 
 export default function WaveAnouncer() {
-    const { currentWave } = useStore();
-    const [countdown, setCountdown] = useState(3);
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setCountdown(countdown - 1);
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [countdown]);
-    return (
-        <View style={WaveAnouncerLocalStyles.container}>
-            <Text style={WaveAnouncerLocalStyles.title}>Wave {currentWave}</Text>
-            <Text style={WaveAnouncerLocalStyles.countdown}>{countdown}</Text>
-        </View>
-    );
+	const { currentWave } = useStore();
+	const [countdown, setCountdown] = useState(3);
+
+	// Simple 3 -> 0 countdown, resets on mount
+	useEffect(() => {
+		if (countdown <= 0) return;
+		const t = setTimeout(() => {
+			setCountdown((c) => Math.max(0, c - 1));
+		}, 1000);
+		return () => clearTimeout(t);
+	}, [countdown]);
+
+	return (
+		<View style={WaveAnouncerLocalStyles.container}>
+			<Text style={WaveAnouncerLocalStyles.title}>Wave {currentWave}</Text>
+			<Text style={WaveAnouncerLocalStyles.countdown}>{countdown}</Text>
+		</View>
+	);
 }
 
 const WaveAnouncerLocalStyles = StyleSheet.create({
-    container: {
-        position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        },
-        title: {
-            fontSize: 24,
-            color: '#fff',
-        },
-    countdow: {
-        fontSize: 24,
-        color: '#fff',
-    },
+	container: {
+		position: 'absolute',
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		justifyContent: 'center',
+		alignItems: 'center',
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+	},
+	title: {
+		fontSize: 24,
+		color: '#fff',
+		marginBottom: 8,
+	},
+	countdown: {
+		fontSize: 28,
+		color: '#fff',
+		fontWeight: '600',
+	},
 });

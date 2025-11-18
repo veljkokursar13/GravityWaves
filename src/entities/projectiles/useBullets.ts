@@ -3,7 +3,7 @@ import { useState, useRef, useCallback } from 'react';
 import { SpaceShipProjectile } from './types';
 import { useWindowDimensions } from 'react-native';
 
-interface BulletsHook {
+interface ShipBulletsHook {
     bullets: SpaceShipProjectile[];
     addBullet: (bullet: SpaceShipProjectile) => void;
     removeBullet: (id: string) => void;
@@ -32,7 +32,7 @@ function updateBullet(bullet: SpaceShipProjectile, delta: number, screenHeight: 
     };
 }
 
-export const useBullets = (): BulletsHook => {
+export const useShipBullets = (): ShipBulletsHook => {
     const { height } = useWindowDimensions();
     const [bullets, setBullets] = useState<SpaceShipProjectile[]>([]);
     const lastFireTime = useRef<number>(0);
@@ -81,3 +81,7 @@ export const useBullets = (): BulletsHook => {
 
     return { bullets, addBullet, removeBullet, updateBullets, shoot };
 }
+
+// Backward/compat exports to avoid import mismatch
+export { useShipBullets as useBullets };
+export default useShipBullets;

@@ -33,11 +33,13 @@ export function updateEnemyPosition(
 
     case 'snake':
       e.y += e.speed * dt * 60;
-      e.x += Math.sin(e.t * 4) * 1.8;
+      const amp = bounds.width * 0.35;
+      const freq = 0.009;
+      e.x += Math.sin(e.t * freq) * amp * dt * 60;
       break;
 
     case 'sideRush':
-      e.y += (e.speed * 0.3) * dt * 60;
+      e.y += e.speed  * dt * 60;
       e.x += e.direction * e.speed * dt * 60;
       break;
 
@@ -57,6 +59,11 @@ export function updateEnemyPosition(
       }
       break;
   }
+
+  // Constrain horizontally within screen; allow vertical to pass off bottom
+  const halfW = e.width / 2;
+  if (e.x < halfW) e.x = halfW;
+  if (e.x > bounds.width - halfW) e.x = bounds.width - halfW;
 
   return e;
 }
