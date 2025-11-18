@@ -35,4 +35,8 @@ const WaveAnouncerLocalStyles = StyleSheet.create({
             fontSize: 24,
             color: '#fff',
         },
-    });
+    countdow: {
+        fontSize: 24,
+        color: '#fff',
+    },
+});

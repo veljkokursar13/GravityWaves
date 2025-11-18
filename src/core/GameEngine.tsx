@@ -2,21 +2,21 @@ import { Canvas, Group } from "@shopify/react-native-skia";
 import { View, useWindowDimensions } from "react-native";
 import { useCallback, useState, useRef, useEffect } from "react";
 import Ship from "@/entities/ship/Ship";
-import Drone from "@/entities/enemies/Drone";
+import EnemyRenderer from "@/entities/enemies/EnemyRenderer";
 import Bullet from "@/entities/projectiles/Bullet";
 import { initialShip, type Ship as ShipType } from "@/entities/ship/types";
-import { useDrones } from "@/entities/enemies/DroneSpawn";
+import { useEnemies } from "@/entities/enemies/useEnemies";
+import { useWaveManager } from "@/entities/waves/useWaveManager";
 import { useBullets } from "@/entities/projectiles/useBullets";
 import { useGameLoop } from "@/hooks/useGameLoop";
-import { detectCollisions, detectBulletDroneCollisions } from "@/core/systems/collision";
+import { detectShipEnemyCollisions, detectBulletEnemyCollisions } from "@/core/systems/collision";
 import { useStore } from "@/store/store";
 import GameOverScreen from "@/core/overlays/GameOverScreen";
 import Hud from "@/core/overlays/Hud";
-import { WAVES, getWaveConfig } from '@/core/systems/waves';
 
 export default function GameEngine() {
     const { width, height } = useWindowDimensions();
-    const { appState, setAppState, score, currentWave, setCurrentWave, addScore, addKills } = useStore();
+    const { appState, setAppState, addScore, addKills } = useStore();
     const paused = appState === 'paused';
     const isGameOver = appState === 'gameover';
     
@@ -26,8 +26,19 @@ export default function GameEngine() {
         y: height - 50 
     });
 
-    const waveConfig = getWaveConfig(currentWave);
-    const { drones, updateDrones, removeDrone, getWaveProgress, drainPassed, resetWave } = useDrones(waveConfig);
+    // Enemy management
+    const { enemies, spawnEnemy, killEnemy, damageEnemy } = useEnemies({
+        bounds: { width, height },
+        shipPosition: { x: ship.x, y: ship.y },
+        onEnemyPassed: () => onEnemyPassed(),
+    });
+
+    // Wave management
+    const { currentWave, enemiesRemaining, onEnemyKilled, onEnemyPassed } = useWaveManager({
+        onSpawnEnemy: spawnEnemy
+    });
+    const waveId = currentWave?.id ?? 1;
+
     const { bullets, updateBullets, shoot, removeBullet } = useBullets();
     
     // Refs for game state
@@ -40,10 +51,7 @@ export default function GameEngine() {
     // Reset game when coming back from game over
     useEffect(() => {
         if (appState === 'game' && gameOverTriggered.current) {
-            // Reset game state after game over
             gameOverTriggered.current = false;
-            setCurrentWave(1); // Reset wave on game restart
-            // Reset ship position
             setShip({ 
                 ...initialShip, 
                 x: width / 2, 
@@ -53,83 +61,98 @@ export default function GameEngine() {
             previousShipX.current = width / 2;
             velocityX.current = 0;
         }
-    }, [appState, width, height, setCurrentWave]);
+    }, [appState, width, height]);
 
-    // Event-based waves (no score-based wave calculation)
-
-    // Smooth lerp interpolation
-    const lerp = (start: number, end: number, factor: number) => {
-        return start + (end - start) * factor;
-    };
+    // Ship motion velocity (for spring-based motion)
+    const shipVel = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
     // Centralized game loop
     useGameLoop((delta) => {
-        // Smooth ship movement towards target
-        const lerpFactor = Math.min(1, delta * 12); // Smooth follow speed
-        const newX = lerp(ship.x, targetPos.current.x, lerpFactor);
-        const newY = lerp(ship.y, targetPos.current.y, lerpFactor);
-        
-        // Calculate velocity for ship banking
-        const dx = newX - previousShipX.current;
-        velocityX.current = dx / delta;
-        previousShipX.current = newX;
+        // Clamp dt to avoid spikes
+        const dt = Math.min(0.03, Math.max(0, delta));
+
+        // Critically-damped spring motion towards target position
+        const fromX = ship.x;
+        const fromY = ship.y;
+        const tx = targetPos.current.x;
+        const ty = targetPos.current.y;
+        const dx = tx - fromX;
+        const dy = ty - fromY;
+
+        const stiffness = 16.0; // higher = snappier
+        const damping = 2.8;    // higher = more damped
+
+        // integrate velocity
+        const vx = shipVel.current.x + (dx * stiffness - shipVel.current.x * damping) * dt;
+        const vy = shipVel.current.y + (dy * stiffness - shipVel.current.y * damping) * dt;
+
+        // cap velocity
+        const maxV = 1600;
+        const vmag = Math.hypot(vx, vy);
+        const cvx = vmag > maxV ? (vx / vmag) * maxV : vx;
+        const cvy = vmag > maxV ? (vy / vmag) * maxV : vy;
+        shipVel.current = { x: cvx, y: cvy };
+
+        // integrate position
+        let nx = fromX + cvx * dt;
+        let ny = fromY + cvy * dt;
+
+        // clamp to bounds
+        nx = Math.max(ship.width / 2, Math.min(width - ship.width / 2, nx));
+        ny = Math.max(ship.height / 2, Math.min(height - ship.height / 2, ny));
+
+        // Update banking velocity
+        velocityX.current = (nx - previousShipX.current) / Math.max(dt, 1e-6);
+        previousShipX.current = nx;
 
         // Update ship position
-        setShip(prev => ({ ...prev, x: newX, y: newY }));
+        setShip(prev => ({ ...prev, x: nx, y: ny }));
 
         // Auto-shoot only while touching the screen
         if (appState === 'game' && isTouching.current) {
-            shoot(newX, newY, ship.height);
+            shoot(nx, ny, ship.height);
         }
 
         // Update bullets
         updateBullets(delta);
 
-        // Update drones
-        updateDrones(delta, newX, newY);
-        // Apply penalty for drones that passed the ship
-        const passedIds = drainPassed();
-        if (passedIds.length > 0) {
-            addScore(-5 * passedIds.length);
-        }
-        
-        // Check bullet-drone collisions (only for drones visible on screen)
-        const bulletCollisionsAll = detectBulletDroneCollisions(bullets, drones);
-        const bulletCollisions = bulletCollisionsAll.filter(({ drone }) => {
-            const droneTop = drone.y - drone.height / 2;
-            const droneBottom = drone.y + drone.height / 2;
-            return droneBottom > 0 && droneTop < height;
+        // Check bullet-enemy collisions (only for enemies visible on screen)
+        const bulletCollisionsAll = detectBulletEnemyCollisions(bullets, enemies);
+        const bulletCollisions = bulletCollisionsAll.filter(({ enemy }) => {
+            const enemyTop = enemy.y - enemy.height / 2;
+            const enemyBottom = enemy.y + enemy.height / 2;
+            return enemyBottom > 0 && enemyTop < height;
         });
+        
         if (bulletCollisions.length > 0) {
-            // Remove hit bullets and drones, update score
             const hitBulletIds = new Set(bulletCollisions.map(c => c.bullet.id));
-            const hitDroneIds = new Set(bulletCollisions.map(c => c.drone.id));
+            const processedEnemies = new Set<string>();
             
+            // Remove bullets and damage enemies
             hitBulletIds.forEach(id => removeBullet(id));
-            hitDroneIds.forEach(id => removeDrone(id));
-            if (hitDroneIds.size > 0) {
-                addScore(10 * hitDroneIds.size);
-                addKills(hitDroneIds.size);
-            }
+            
+            bulletCollisions.forEach(({ bullet, enemy }) => {
+                if (!processedEnemies.has(enemy.id)) {
+                    processedEnemies.add(enemy.id);
+                    
+                    // Check if enemy will die from this hit
+                    if (enemy.hp <= bullet.damage) {
+                        killEnemy(enemy.id);
+                        onEnemyKilled();
+                        addScore(10 * (enemy.kind === 'boss' ? 10 : 1)); // Bosses worth 10x
+                        addKills(1);
+                    } else {
+                        damageEnemy(enemy.id, bullet.damage);
+                    }
+                }
+            });
         }
         
-        // Check ship-drone collisions
-        const collisions = detectCollisions(ship, drones);
-        if (collisions.length > 0 && !gameOverTriggered.current) {
+        // Check ship-enemy collisions
+        const shipCollisions = detectShipEnemyCollisions(ship, enemies);
+        if (shipCollisions.length > 0 && !gameOverTriggered.current) {
             gameOverTriggered.current = true;
             setAppState('gameover');
-        }
-
-        // Wave completion: when all intended drones are spawned and none remain
-        const progress = getWaveProgress();
-        if (progress.spawned >= progress.total && progress.remaining === 0) {
-            if (currentWave < WAVES.length) {
-                resetWave();
-                setCurrentWave(currentWave + 1);
-            } else {
-                // All waves completed
-                setAppState('gameover');
-            }
         }
     }, paused || isGameOver);
 
@@ -148,7 +171,6 @@ export default function GameEngine() {
             Math.min(height - ship.height / 2, locationY - offsetY)
         );
 
-        // Update target position for smooth interpolation
         targetPos.current = { x: targetX, y: targetY };
     }, [height, ship.height, ship.width, width]);
 
@@ -164,9 +186,9 @@ export default function GameEngine() {
                     {bullets.map(bullet => (
                         <Bullet key={bullet.id} bullet={bullet} />
                     ))}
-                    {/* Render drones */}
-                    {drones.map(drone => (
-                        <Drone key={drone.id} drone={drone} />
+                    {/* Render enemies */}
+                    {enemies.map(enemy => (
+                        <EnemyRenderer key={enemy.id} enemy={enemy} />
                     ))}
                     {/* Render ship on top */}
                     <Ship ship={ship} velocityX={velocityX.current} />
@@ -180,7 +202,7 @@ export default function GameEngine() {
                 onTouchCancel={handleTouchEnd}
             />
             {/* HUD Overlay */}
-            <Hud />
+            <Hud waveId={waveId} />
             {/* Game Over Overlay */}
             {isGameOver && <GameOverScreen />}
         </View>

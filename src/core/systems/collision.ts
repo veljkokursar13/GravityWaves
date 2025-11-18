@@ -1,80 +1,54 @@
 //collision detection system
 import { Ship } from '@/entities/ship/types';
-import { Drone } from '@/entities/enemies/types';
+import { Enemy } from '@/entities/enemies/types';
 import { SpaceShipProjectile } from '@/entities/projectiles/types';
 
-export type Collision = {
-    ship: Ship;
-    drone: Drone;
+// Generic entity type for collision detection
+interface CollisionEntity {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }
 
-export type BulletDroneCollision = {
+export type ShipEnemyCollision = {
+    ship: Ship;
+    enemy: Enemy;
+}
+
+export type BulletEnemyCollision = {
     bullet: SpaceShipProjectile;
-    drone: Drone;
+    enemy: Enemy;
 }
 
 // AABB collision detection (assumes x/y are center points)
-export function detectCollisions(ship: Ship | null, drones: Drone[]): Collision[] {
-    if (!ship || !drones.length) return [];
+export function detectShipEnemyCollisions(ship: Ship | null, enemies: Enemy[]): ShipEnemyCollision[] {
+    if (!ship || !enemies.length) return [];
     
-    const collisions: Collision[] = [];
+    const collisions: ShipEnemyCollision[] = [];
     
-    for (const drone of drones) {
-        // Calculate bounding boxes from center points
-        const shipLeft = ship.x - ship.width / 2;
-        const shipRight = ship.x + ship.width / 2;
-        const shipTop = ship.y - ship.height / 2;
-        const shipBottom = ship.y + ship.height / 2;
-        
-        const droneLeft = drone.x - drone.width / 2;
-        const droneRight = drone.x + drone.width / 2;
-        const droneTop = drone.y - drone.height / 2;
-        const droneBottom = drone.y + drone.height / 2;
-        
-        // Check AABB overlap
-        if (
-            shipRight > droneLeft &&
-            shipLeft < droneRight &&
-            shipBottom > droneTop &&
-            shipTop < droneBottom
-        ) {
-            collisions.push({ ship, drone });
+    for (const enemy of enemies) {
+        if (checkAABBCollision(ship, enemy)) {
+            collisions.push({ ship, enemy });
         }
     }
     
     return collisions;
 }
 
-// Detect collisions between bullets and drones
-export function detectBulletDroneCollisions(
+// Detect collisions between bullets and enemies
+export function detectBulletEnemyCollisions(
     bullets: SpaceShipProjectile[],
-    drones: Drone[]
-): BulletDroneCollision[] {
-    if (!bullets.length || !drones.length) return [];
+    enemies: Enemy[]
+): BulletEnemyCollision[] {
+    if (!bullets.length || !enemies.length) return [];
     
-    const collisions: BulletDroneCollision[] = [];
+    const collisions: BulletEnemyCollision[] = [];
     
     for (const bullet of bullets) {
-        for (const drone of drones) {
-            // Calculate bounding boxes from center points
-            const bulletLeft = bullet.x - bullet.width / 2;
-            const bulletRight = bullet.x + bullet.width / 2;
-            const bulletTop = bullet.y - bullet.height / 2;
-            const bulletBottom = bullet.y + bullet.height / 2;
-            
-            const droneLeft = drone.x - drone.width / 2;
-            const droneRight = drone.x + drone.width / 2;
-            const droneTop = drone.y - drone.height / 2;
-            const droneBottom = drone.y + drone.height / 2;
-            
-            // Check AABB overlap
-            if (
-                bulletRight > droneLeft &&
-                bulletLeft < droneRight &&
-                bulletBottom > droneTop &&
-                bulletTop < droneBottom
-            ) {
-                collisions.push({ bullet, drone });
+        for (const enemy of enemies) {
+            if (checkAABBCollision(bullet, enemy)) {
+                collisions.push({ bullet, enemy });
             }
         }
     }
@@ -82,7 +56,27 @@ export function detectBulletDroneCollisions(
     return collisions;
 }
 
-// Utility: Check if ship is colliding with any drone
-export function isShipColliding(ship: Ship, drones: Drone[]): boolean {
-    return detectCollisions(ship, drones).length > 0;
+// Generic AABB collision check
+function checkAABBCollision(a: CollisionEntity, b: CollisionEntity): boolean {
+    const aLeft = a.x - a.width / 2;
+    const aRight = a.x + a.width / 2;
+    const aTop = a.y - a.height / 2;
+    const aBottom = a.y + a.height / 2;
+    
+    const bLeft = b.x - b.width / 2;
+    const bRight = b.x + b.width / 2;
+    const bTop = b.y - b.height / 2;
+    const bBottom = b.y + b.height / 2;
+    
+    return (
+        aRight > bLeft &&
+        aLeft < bRight &&
+        aBottom > bTop &&
+        aTop < bBottom
+    );
+}
+
+// Utility: Check if ship is colliding with any enemy
+export function isShipColliding(ship: Ship, enemies: Enemy[]): boolean {
+    return detectShipEnemyCollisions(ship, enemies).length > 0;
 }
