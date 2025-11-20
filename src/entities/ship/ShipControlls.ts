@@ -14,6 +14,9 @@ type TouchEvent = {
   };
 };
 
+const SMOOTHING = 0.28;
+const STOP_THRESHOLD = 0.5;
+
 export default function useShipControls({ ship, onMove, bounds }: ShipControlsProps) {
   const isTouchingRef = useRef(false);
   const dragActiveRef = useRef(false);
@@ -23,16 +26,12 @@ export default function useShipControls({ ship, onMove, bounds }: ShipControlsPr
   const onMoveRef = useRef(onMove);
   const animationFrameRef = useRef<number | null>(null);
 
-  // Keep refs in sync with latest props/state values.
   useEffect(() => {
     latestShipRef.current = ship;
-  }, [ship.x, ship.y, ship.width, ship.height]);
-
-  useEffect(() => {
     if (!dragActiveRef.current) {
       targetPositionRef.current = { x: ship.x, y: ship.y };
     }
-  }, [ship.x, ship.y]);
+  }, [ship.x, ship.y, ship.width, ship.height]);
 
   useEffect(() => {
     onMoveRef.current = onMove;
@@ -42,31 +41,25 @@ export default function useShipControls({ ship, onMove, bounds }: ShipControlsPr
     return Math.max(min, Math.min(max, value));
   }, []);
 
-  const updateLatestShipPosition = useCallback((x: number, y: number) => {
-    latestShipRef.current = { ...latestShipRef.current, x, y };
-  }, []);
-
   const stopAnimation = useCallback(() => {
-    if (animationFrameRef.current != null) {
+    if (animationFrameRef.current !== null) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
   }, []);
 
-  // Step ship position toward the latest touch target with a simple easing curve.
-  const animateTowardsTarget = useCallback(() => {
-  const { x: targetX, y: targetY } = targetPositionRef.current;
-  const currentShip = latestShipRef.current;
-    const dx = targetX - currentShip.x;
-    const dy = targetY - currentShip.y;
+  const stepTowardsTarget = useCallback(() => {
+    const current = latestShipRef.current;
+    const target = targetPositionRef.current;
 
-  const distanceSquared = dx * dx + dy * dy;
-  const reachedTarget = distanceSquared < 0.5;
+    const dx = target.x - current.x;
+    const dy = target.y - current.y;
+    const distanceSq = dx * dx + dy * dy;
 
-    if (reachedTarget) {
-      if (dragActiveRef.current) {
-        onMoveRef.current(targetX, targetY);
-        updateLatestShipPosition(targetX, targetY);
+    if (distanceSq <= STOP_THRESHOLD) {
+      if (distanceSq > 0) {
+        onMoveRef.current(target.x, target.y);
+        latestShipRef.current = { ...current, x: target.x, y: target.y };
       }
 
       if (!dragActiveRef.current) {
@@ -74,24 +67,23 @@ export default function useShipControls({ ship, onMove, bounds }: ShipControlsPr
         return;
       }
     } else {
-      const smoothing = dragActiveRef.current ? 0.35 : 0.2;
-      const nextX = currentShip.x + dx * smoothing;
-      const nextY = currentShip.y + dy * smoothing;
+      const nextX = current.x + dx * SMOOTHING;
+      const nextY = current.y + dy * SMOOTHING;
+
       onMoveRef.current(nextX, nextY);
-      updateLatestShipPosition(nextX, nextY);
+      latestShipRef.current = { ...current, x: nextX, y: nextY };
     }
 
-    animationFrameRef.current = requestAnimationFrame(animateTowardsTarget);
-  }, [stopAnimation, updateLatestShipPosition]);
+    animationFrameRef.current = requestAnimationFrame(stepTowardsTarget);
+  }, [stopAnimation]);
 
-  const ensureAnimationRunning = useCallback(() => {
-    if (animationFrameRef.current?? null) {
-      animationFrameRef.current = requestAnimationFrame(animateTowardsTarget);
-    }
-  }, [animateTowardsTarget]);
+  const ensureAnimation = useCallback(() => {
+    animationFrameRef.current ??=
+      requestAnimationFrame(stepTowardsTarget);
+  }, [stepTowardsTarget]);
 
   const onTouchStart = useCallback(
-  (event: TouchEvent) => {
+    (event: TouchEvent) => {
       const { locationX, locationY } = event.nativeEvent;
 
       dragActiveRef.current = true;
@@ -103,13 +95,13 @@ export default function useShipControls({ ship, onMove, bounds }: ShipControlsPr
       };
 
       targetPositionRef.current = { x: ship.x, y: ship.y };
-      ensureAnimationRunning();
+      ensureAnimation();
     },
-    [ensureAnimationRunning, ship.x, ship.y]
+    [ensureAnimation, ship.x, ship.y]
   );
 
   const onTouchMove = useCallback(
-  (event: TouchEvent) => {
+    (event: TouchEvent) => {
       if (!dragActiveRef.current) return;
 
       const { locationX, locationY } = event.nativeEvent;
@@ -121,16 +113,16 @@ export default function useShipControls({ ship, onMove, bounds }: ShipControlsPr
       const clampedY = clamp(unclampedY, ship.height / 2, bounds.height - ship.height / 2);
 
       targetPositionRef.current = { x: clampedX, y: clampedY };
-      ensureAnimationRunning();
+      ensureAnimation();
     },
-    [bounds.height, bounds.width, clamp, ensureAnimationRunning, ship.height, ship.width]
+    [bounds.height, bounds.width, clamp, ensureAnimation, ship.height, ship.width]
   );
 
   const onTouchEnd = useCallback(() => {
     dragActiveRef.current = false;
     isTouchingRef.current = false;
-    ensureAnimationRunning();
-  }, [ensureAnimationRunning]);
+    ensureAnimation();
+  }, [ensureAnimation]);
 
   useEffect(() => {
     return () => {
@@ -139,7 +131,11 @@ export default function useShipControls({ ship, onMove, bounds }: ShipControlsPr
   }, [stopAnimation]);
 
   const touchHandlers = useMemo(
-    () => ({ onTouchStart, onTouchMove, onTouchEnd }),
+    () => ({
+      onTouchStart,
+      onTouchMove,
+      onTouchEnd,
+    }),
     [onTouchEnd, onTouchMove, onTouchStart]
   );
 
@@ -151,3 +147,4 @@ export default function useShipControls({ ship, onMove, bounds }: ShipControlsPr
     touchHandlers,
   };
 }
+
