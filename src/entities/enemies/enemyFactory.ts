@@ -28,7 +28,6 @@ export function createEnemy(params: EnemySpawnParams): Enemy {
     case 'drone':
       width = 52;
       height = 52;
-      baseHp = 1;
       speed = base;
       break;
 

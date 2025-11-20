@@ -5,7 +5,7 @@ import { useFonts } from '@/hooks/useFonts';
 
 type Props = { waveId: number };
 
-export default function Hud({ waveId }: Props) {
+export default function Hud({ waveId }: Readonly<Props>) {
     const { score } = useScore();
     const { fontsLoaded } = useFonts();
     if (!fontsLoaded) return null;
@@ -21,10 +21,8 @@ export default function Hud({ waveId }: Props) {
 const styles = StyleSheet.create({
     hud: {
         position: 'absolute',
-        bottom: 12,
-        zIndex: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
+        top: 12,
+        left: 12,
         width: '100%',
     },
     pill: {

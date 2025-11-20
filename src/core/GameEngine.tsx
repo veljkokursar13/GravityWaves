@@ -28,19 +28,23 @@ export default function GameEngine() {
     });
 
     // Enemy management
+    // Bridge wave progression handler into the enemy hook without breaking hook order.
+    const waveEnemyPassedRef = useRef<() => void>(() => {});
+
     const { enemies, spawnEnemy, killEnemy, damageEnemy } = useEnemies({
         bounds: { width, height },
         shipPosition: { x: ship.x, y: ship.y },
-        onEnemyPassed: () => {
+        onEnemyPassed: (_enemyId) => {
             addScore(-10);
-            onEnemyPassed();
+            waveEnemyPassedRef.current();
         },
     });
 
     // Wave management
-    const { currentWave, enemiesRemaining, onEnemyKilled, onEnemyPassed } = useWaveManager({
+    const { currentWave, onEnemyKilled, onEnemyPassed: waveEnemyPassed } = useWaveManager({
         onSpawnEnemy: spawnEnemy
     });
+    waveEnemyPassedRef.current = waveEnemyPassed;
     const waveId = currentWave?.id ?? 1;
 
     const { bullets, updateBullets, shoot, removeBullet } = useShipBullets();
@@ -65,7 +69,12 @@ export default function GameEngine() {
     }, [appState, width, height]);
 
     // Input handler from simple controls: updates ship position directly
-    const controls = ShipControlls({
+    const {
+        onTouchStart,
+        onTouchMove,
+        onTouchEnd,
+        isTouchingRef,
+    } = ShipControlls({
         ship,
         onMove: (x: number, y: number) => {
             setShip(prev => ({ ...prev, x, y }));
@@ -73,24 +82,8 @@ export default function GameEngine() {
         bounds: { width, height }
     });
 
-    // Centralized game loop
-    useGameLoop((delta) => {
-        // Clamp dt to avoid spikes
-        const dt = Math.min(0.03, Math.max(0, delta));
-
-        // Derive horizontal velocity from actual position changes (for banking or future use)
-        velocityX.current = (ship.x - previousShipX.current) / Math.max(dt, 1e-6);
-        previousShipX.current = ship.x;
-
-        // Auto-shoot only while touching the screen
-        if (appState === 'game' && controls.isTouchingRef.current) {
-            shoot(ship.x, ship.y, ship.height);
-        }
-
-        // Update bullets
-        updateBullets(delta);
-
-        // Check bullet-enemy collisions (only for enemies visible on screen)
+    // Helper: Process bullet-enemy collisions
+    const processBulletCollisions = () => {
         const bulletCollisionsAll = detectBulletEnemyCollisions(bullets, enemies);
         const bulletCollisions = bulletCollisionsAll.filter(({ enemy }) => {
             const enemyTop = enemy.y - enemy.height / 2;
@@ -98,43 +91,57 @@ export default function GameEngine() {
             return enemyBottom > 0 && enemyTop < height;
         });
         
-        if (bulletCollisions.length > 0) {
-            const hitBulletIds = new Set(bulletCollisions.map(c => c.bullet.id));
-            const processedEnemies = new Set<string>();
-            
-            // Remove bullets and damage enemies
-            hitBulletIds.forEach(id => removeBullet(id));
-            
-            bulletCollisions.forEach(({ bullet, enemy }) => {
-                if (!processedEnemies.has(enemy.id)) {
-                    processedEnemies.add(enemy.id);
-                    
-                    // Check if enemy will die from this hit
-                    if (enemy.hp <= bullet.damage) {
-                        killEnemy(enemy.id);
-                        onEnemyKilled();
-                        addScore(10 * (enemy.kind === 'boss' ? 10 : 1)); // Bosses worth 10x
-                        addKills(1);
-                    } else {
-                        damageEnemy(enemy.id, bullet.damage);
-                    }
-                }
-            });
+        if (bulletCollisions.length === 0) return;
+
+        const hitBulletIds = new Set(bulletCollisions.map(c => c.bullet.id));
+        const processedEnemies = new Set<string>();
+        
+        for (const id of hitBulletIds) {
+            removeBullet(id);
         }
         
-        // Check ship-enemy collisions
+        for (const { bullet, enemy } of bulletCollisions) {
+            if (processedEnemies.has(enemy.id)) continue;
+            
+            processedEnemies.add(enemy.id);
+            
+            if (enemy.hp <= bullet.damage) {
+                killEnemy(enemy.id);
+                onEnemyKilled();
+                addScore(10 * (enemy.kind === 'boss' ? 10 : 1));
+                addKills(1);
+            } else {
+                damageEnemy(enemy.id, bullet.damage);
+            }
+        }
+    };
+
+    // Helper: Check for game over
+    const checkGameOver = () => {
         const shipCollisions = detectShipEnemyCollisions(ship, enemies);
         if (shipCollisions.length > 0 && !gameOverTriggered.current) {
             gameOverTriggered.current = true;
             setAppState('gameover');
         }
+    };
+
+    // Centralized game loop
+    useGameLoop((delta) => {
+        const dt = Math.min(0.03, Math.max(0, delta));
+
+        velocityX.current = (ship.x - previousShipX.current) / Math.max(dt, 1e-6);
+        previousShipX.current = ship.x;
+
+        if (appState === 'game' && isTouchingRef.current) {
+            shoot(ship.x, ship.y, ship.height);
+        }
+
+        updateBullets(delta);
+        processBulletCollisions();
+        checkGameOver();
     }, paused || isGameOver);
 
     // Touch handlers: use simple ship controls + shoot gating
-    const onTouchStart = controls.onTouchStart;
-    const onTouchMove = controls.onTouchMove;
-    const onTouchEnd = controls.onTouchEnd;
-
     return(
         <View style={{ flex: 1, backgroundColor: 'transparent' }}>
             <Canvas style={{ flex: 1, backgroundColor: 'transparent' }}>

@@ -17,6 +17,7 @@ export function updateEnemyPosition(
 ): Enemy {
   const e = { ...enemy };
   e.t = (e.t ?? 0) + dt;
+//all the patterns should be withing screen bounds
 
   switch (e.pattern) {
     case 'straight':
@@ -24,30 +25,31 @@ export function updateEnemyPosition(
       e.x += Math.sin(e.t * 0.1) * 0.3;
       break;
 
-    case 'zigzag':
+    case 'zigzag': {
       e.y += e.speed * dt * 60;
       const amplitude = 45;
       const frequency = 0.02;
       e.x += Math.sin(e.t * frequency) * amplitude * dt * 60;
       break;
-
-    case 'snake':
+    }
+    case 'snake': {
       e.y += e.speed * dt * 60;
       const amp = bounds.width * 0.35;
       const freq = 0.009;
       e.x += Math.sin(e.t * freq) * amp * dt * 60;
       break;
+    }
 
     case 'sideRush':
       e.y += e.speed  * dt * 60;
       e.x += e.direction * e.speed * dt * 60;
       break;
 
-    case 'homing':
+    case 'homing': {
       if (shipX !== undefined && shipY !== undefined) {
         const dx = shipX - e.x;
         const dy = shipY - e.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distance = Math.hypot(dx, dy);
         if (distance > 0) {
           const homingSpeed = e.speed * 0.6;
           e.x += (dx / distance) * homingSpeed * dt * 60;
@@ -58,6 +60,7 @@ export function updateEnemyPosition(
         e.y += e.speed * dt * 60;
       }
       break;
+    }
   }
 
   // Constrain horizontally within screen; allow vertical to pass off bottom
@@ -66,7 +69,7 @@ export function updateEnemyPosition(
   if (e.x > bounds.width - halfW) e.x = bounds.width - halfW;
 
   return e;
-}
+};
 
 export function isEnemyOffscreen(enemy: Enemy, bounds: Bounds): boolean {
   return enemy.y > bounds.height + 100 || enemy.x < -100 || enemy.x > bounds.width + 100;

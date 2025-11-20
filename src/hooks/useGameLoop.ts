@@ -1,9 +1,7 @@
 import { useEffect, useRef } from 'react';
 import useDeltaTime from '@/core/systems/useDeltaTime';
 
-interface GameLoopCallback {
-    (delta: number): void;
-}
+type GameLoopCallback = (delta: number) => void;
 
 export function useGameLoop(callback: GameLoopCallback, paused: boolean = false) {
     const delta = useDeltaTime();

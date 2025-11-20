@@ -25,10 +25,6 @@ export default function GameOverScreen() {
   }
 
   const handleResetGame = () => {
-    // Reset score
-    setScore(0);
-    // Reset app state to game
-    setAppState('game');
     // Navigate to game route (this will trigger GameEngine reset)
     router.replace('/game');
   };
