@@ -1,6 +1,7 @@
 // Enemy movement patterns and logic
 
 import { Enemy } from './types';
+import { getPattern } from './patterns';
 
 interface Bounds {
   width: number;
@@ -17,9 +18,21 @@ export function updateEnemyPosition(
 ): Enemy {
   const e = { ...enemy };
   e.t = (e.t ?? 0) + dt;
-//all the patterns should be withing screen bounds
-
-  switch (e.pattern) {
+  // Try new pattern system first
+  const pattern = getPattern(e.pattern as unknown as string);
+  if (pattern) {
+    const next = pattern.update(
+      { x: e.x, y: e.y, spawnX: e.spawnX, spawnY: e.spawnY, indexInFormation: e.indexInFormation },
+      e.t,
+      dt,
+      { playerX: shipX, playerY: shipY }
+    );
+    e.x = next.x;
+    e.y = next.y;
+    if (typeof next.rotation === 'number') {
+      e.rotation = next.rotation;
+    }
+  } else switch (e.pattern) {
     case 'straight':
       e.y += e.speed * dt * 60;
       e.x += Math.sin(e.t * 0.1) * 0.3;

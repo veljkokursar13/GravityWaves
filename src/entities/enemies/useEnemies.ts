@@ -16,6 +16,8 @@ interface SpawnEnemyConfig {
   pattern: MovementPattern;
   baseSpeed: number;
   hpMultiplier: number;
+  initialPosition?: { x: number; y: number };
+  indexInFormation?: number;
 }
 
 export function useEnemies({ bounds, shipPosition, onEnemyPassed }: UseEnemiesProps) {
@@ -23,8 +25,8 @@ export function useEnemies({ bounds, shipPosition, onEnemyPassed }: UseEnemiesPr
   const lastTimeRef = useRef<number | null>(null);
 
   function spawnEnemy(config: SpawnEnemyConfig) {
-    const x = Math.random() * (bounds.width - 80) + 40;
-    const y = -80;
+    const x = config.initialPosition?.x ?? (Math.random() * (bounds.width - 80) + 40);
+    const y = config.initialPosition?.y ?? -80;
 
     const enemy = createEnemy({
       kind: config.kind,
@@ -33,6 +35,7 @@ export function useEnemies({ bounds, shipPosition, onEnemyPassed }: UseEnemiesPr
       y,
       baseSpeed: config.baseSpeed,
       hpMultiplier: config.hpMultiplier,
+      indexInFormation: config.indexInFormation,
     });
 
     setEnemies((prev) => [...prev, enemy]);

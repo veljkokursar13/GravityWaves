@@ -9,6 +9,7 @@ interface EnemySpawnParams {
   y: number;
   baseSpeed: number;
   hpMultiplier: number;
+  indexInFormation?: number;
 }
 
 export function createEnemy(params: EnemySpawnParams): Enemy {
@@ -74,5 +75,8 @@ export function createEnemy(params: EnemySpawnParams): Enemy {
     direction: Math.random() < 0.5 ? -1 : 1,
     rotation: 0,
     t: 0,
+    spawnX: x,
+    spawnY: y,
+    indexInFormation: params.indexInFormation,
   };
 }

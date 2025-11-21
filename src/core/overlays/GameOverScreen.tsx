@@ -39,9 +39,9 @@ export default function GameOverScreen() {
   return (
     <View style={overlayStyles.overlay} pointerEvents="auto">
       {hasBlur ? (
-        <BlurComponent intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <BlurComponent intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
       ) : (
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.95)' }]} />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0, 0, 0, 0.1)' }]} />
       )}
       <View style={GameOverLocalStyles.layoutContainer}>
         <Text style={GameOverLocalStyles.title}>Game Over</Text>

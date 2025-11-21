@@ -6,11 +6,11 @@ export interface WaveConfig {
   enemies: {
     kind: EnemyKind;
     count: number;
-    patterns: MovementPattern[];
+    pattern: MovementPattern;
   }[];
   baseSpeed: number;
   hpMultiplier: number;
-  spawnInterval: number; // ms
+  spawnInterval: number; // ms (legacy; not used by pattern spawner)
   isBoss?: boolean;
 }
 

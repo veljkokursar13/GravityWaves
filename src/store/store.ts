@@ -25,7 +25,7 @@ export const useStore = create<Store>()(
         (set) => ({
             score: 0,
             setScore: (score: number) => set({ score }),
-            addScore: (delta: number) => set((state) => ({ score: Math.max(0, state.score + delta) })),
+            addScore: (delta: number) => set((state) => ({ score: state.score + delta })),
             kills: 0,
             addKills: (delta: number) => set((state) => ({ kills: Math.max(0, state.kills + delta) })),
             appState: 'menu',

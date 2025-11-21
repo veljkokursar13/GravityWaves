@@ -1,37 +1,31 @@
-//Hud shows score and wave
+//Hud shows only the score (top-left)
 import { View, Text, StyleSheet } from 'react-native';
 import { useScore } from '@/hooks/useScore';
 import { useFonts } from '@/hooks/useFonts';
 
-type Props = { waveId: number };
-
-export default function Hud({ waveId }: Readonly<Props>) {
-    const { score } = useScore();
-    const { fontsLoaded } = useFonts();
-    if (!fontsLoaded) return null;
-    return (
-        <View pointerEvents="none" style={styles.hud}>
-            <View style={styles.pill}>
-                <Text style={styles.line}>Score: {score}</Text>
-                <Text style={styles.line}>Wave: {waveId}</Text>
-            </View>
-        </View>
-    );
+export default function Hud() {
+  const { score } = useScore();
+  const { fontsLoaded } = useFonts();
+  if (!fontsLoaded) return null;
+  return (
+    <View pointerEvents="none" style={styles.hud}>
+      <View style={styles.pill}>
+        <Text style={styles.line}>Score: {score}</Text>
+      </View>
+    </View>
+  );
 }
 const styles = StyleSheet.create({
     hud: {
         position: 'absolute',
-        top: 12,
+        top: 35,
         left: 12,
         width: '100%',
     },
     pill: {
         paddingHorizontal: 10,
         paddingVertical: 6,
-        borderRadius: 10,
-        backgroundColor: 'transparent',
-        borderWidth: 0.3,
-        borderColor: '#fff',
+
     },
     line: {
         fontSize: 20,

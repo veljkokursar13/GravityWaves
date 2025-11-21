@@ -1,23 +1,39 @@
 // Unified enemy type system for all enemy entities
 
 export type EnemyKind = 'drone' | 'heavyDrone' | 'kamikaze' | 'rogue' | 'boss';
-export type MovementPattern = 'straight' | 'zigzag' | 'homing' | 'snake' | 'sideRush';
+export type MovementPattern =
+  | 'straight'
+  | 'zigzag'
+  | 'homing'
+  | 'snake'
+  | 'sideRush'
+  // new pattern system ids
+  | 'sCurve'
+  | 'vFormation'
+  | 'circle'
+  | 'dive'
+  | 'serpent'
+  | 'stopper';
 
 // Main Enemy type - used by new system
 export type Enemy = {
-    id: string;
-    kind: EnemyKind;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    speed: number;
-    hp: number;
-    maxHp: number;
-    pattern: MovementPattern;
-    direction: 1 | -1;
-    rotation: number;
-    t: number; // time accumulator for pattern calculations
+  id: string;
+  kind: EnemyKind;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  speed: number;
+  hp: number;
+  maxHp: number;
+  pattern: MovementPattern;
+  direction: 1 | -1;
+  rotation: number;
+  t: number; // time accumulator for pattern calculations
+  // pattern system additions
+  spawnX: number;
+  spawnY: number;
+  indexInFormation?: number;
 };
 
 // Legacy Drone type - kept for backward compatibility with existing DroneSpawn.ts

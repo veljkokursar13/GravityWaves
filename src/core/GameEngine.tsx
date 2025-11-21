@@ -13,7 +13,9 @@ import { detectShipEnemyCollisions, detectBulletEnemyCollisions } from "@/core/s
 import { useStore } from "@/store/store";
 import GameOverScreen from "@/core/overlays/GameOverScreen";
 import Hud from "@/core/overlays/Hud";
-import ShipControlls from "@/entities/ship/ShipControlls";
+import useJoystick from "@/hooks/useJoystick";
+import Joystick from "@/core/overlays/Joystick";
+import WaveAnouncer from "@/core/overlays/WaveAnouncer";
 
 export default function GameEngine() {
     const { width, height } = useWindowDimensions();
@@ -41,11 +43,11 @@ export default function GameEngine() {
     });
 
     // Wave management
-    const { currentWave, onEnemyKilled, onEnemyPassed: waveEnemyPassed } = useWaveManager({
-        onSpawnEnemy: spawnEnemy
+    const { currentWave, currentWaveId, phase, onEnemyKilled, onEnemyPassed: waveEnemyPassed } = useWaveManager({
+        onSpawnEnemy: spawnEnemy,
+        bounds: { width, height },
     });
     waveEnemyPassedRef.current = waveEnemyPassed;
-    const waveId = currentWave?.id ?? 1;
 
     const { bullets, updateBullets, shoot, removeBullet } = useShipBullets();
     
@@ -68,19 +70,8 @@ export default function GameEngine() {
         }
     }, [appState, width, height]);
 
-    // Input handler from simple controls: updates ship position directly
-    const {
-        onTouchStart,
-        onTouchMove,
-        onTouchEnd,
-        isTouchingRef,
-    } = ShipControlls({
-        ship,
-        onMove: (x: number, y: number) => {
-            setShip(prev => ({ ...prev, x, y }));
-        },
-        bounds: { width, height }
-    });
+    // Joystick controls
+    const { vector, onMove, onRelease } = useJoystick();
 
     // Helper: Process bullet-enemy collisions
     const processBulletCollisions = () => {
@@ -132,16 +123,42 @@ export default function GameEngine() {
         velocityX.current = (ship.x - previousShipX.current) / Math.max(dt, 1e-6);
         previousShipX.current = ship.x;
 
-        if (appState === 'game' && isTouchingRef.current) {
+        // ----- JOYSTICK MOVEMENT -----
+        // vector is normalized [-1, 1] with deadzone applied by the hook
+        let vx = vector.x;
+        let vy = vector.y;
+
+        // Optional extra deadzone
+        const mag = Math.hypot(vx, vy);
+        if (mag < 0.05) {
+            vx = 0;
+            vy = 0;
+        }
+
+        const speed = ship.speed ?? 450; // px/s
+        let nextX = ship.x + vx * speed * dt;
+        let nextY = ship.y + vy * speed * dt; // RN y+ is down, so keep +
+        // Clamp to screen
+        const halfW = ship.width / 2;
+        const halfH = ship.height / 2;
+        if (nextX < halfW) nextX = halfW;
+        if (nextX > width - halfW) nextX = width - halfW;
+        if (nextY < halfH) nextY = halfH;
+        if (nextY > height - halfH) nextY = height - halfH;
+        if (nextX !== ship.x || nextY !== ship.y) {
+            setShip(prev => ({ ...prev, x: nextX, y: nextY }));
+        }
+        // Auto-fire while moving
+        if (mag > 0.05) {
             shoot(ship.x, ship.y, ship.height);
         }
 
-        updateBullets(delta);
+        updateBullets(dt);
         processBulletCollisions();
         checkGameOver();
     }, paused || isGameOver);
 
-    // Touch handlers: use simple ship controls + shoot gating
+    // Render
     return(
         <View style={{ flex: 1, backgroundColor: 'transparent' }}>
             <Canvas style={{ flex: 1, backgroundColor: 'transparent' }}>
@@ -158,18 +175,12 @@ export default function GameEngine() {
                     <Ship ship={ship} velocityX={velocityX.current} />
                 </Group>
             </Canvas>
-            <View
-                style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
-                onStartShouldSetResponder={() => true}
-                onMoveShouldSetResponder={() => true}
-                onResponderGrant={onTouchStart}
-                onResponderMove={onTouchMove}
-                onResponderRelease={onTouchEnd}
-                onResponderTerminate={onTouchEnd}
-                onResponderTerminationRequest={() => true}
-            />
-            {/* HUD Overlay */}
-            <Hud waveId={waveId} />
+            {/* HUD Overlay (score only) */}
+            <Hud />
+            {/* Wave Announcer between waves */}
+            {phase === 'between' && <WaveAnouncer waveId={currentWaveId} />}
+            {/* Joystick */}
+            <Joystick onMove={onMove} onRelease={onRelease} />
             {/* Game Over Overlay */}
             {isGameOver && <GameOverScreen />}
         </View>

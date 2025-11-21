@@ -3,7 +3,7 @@ import { PanResponder, View } from 'react-native';
 
 interface JoystickProps {
     radius?: number;
-    onMove: (dx: number, dy: number) => void;
+    onMove: (v: { x: number; y: number }) => void;
     onRelease: () => void;
 }
 
@@ -12,37 +12,43 @@ type GestureState = { dx: number; dy: number; [key: string]: unknown };
 export default function Joystick({ radius = 60, onMove, onRelease }: Readonly<JoystickProps>) {
     const [knobOffset, setKnobOffset] = useState({ x: 0, y: 0 });
 
-    const clampOffset = useCallback(
-        ({ dx, dy }: GestureState) => {
-            const distance = Math.hypot(dx, dy);
+    const applyGain = useCallback((v: number) => {
+        const sign = v < 0 ? -1 : 1;
+        return sign * Math.pow(Math.abs(v), 0.7);
+    }, []);
 
-            if (distance <= radius) {
-                return { x: dx, y: dy };
-            }
-
-            if (distance === 0) {
-                return { x: 0, y: 0 };
-            }
-
-            const scale = radius / distance;
-            return { x: dx * scale, y: dy * scale };
-        },
-        [radius]
-    );
+    const computeFromEvent = useCallback((evt: any) => {
+        const { locationX, locationY } = evt.nativeEvent ?? { locationX: radius, locationY: radius };
+        let dx = locationX - radius;
+        let dy = locationY - radius;
+        const dist = Math.hypot(dx, dy);
+        if (dist > radius && dist > 0) {
+            dx = (dx / dist) * radius;
+            dy = (dy / dist) * radius;
+        }
+        // normalized vector in [-1, 1]
+        let vx = dx / radius;
+        let vy = dy / radius;
+        // exponential gain for responsiveness
+        vx = applyGain(vx);
+        vy = applyGain(vy);
+        return { knob: { x: dx, y: dy }, vec: { x: vx, y: vy } };
+    }, [radius, applyGain]);
 
     const panResponder = useMemo(
         () =>
             PanResponder.create({
                 onStartShouldSetPanResponder: () => true,
                 onMoveShouldSetPanResponder: () => true,
-                onPanResponderGrant: () => {
-                    setKnobOffset({ x: 0, y: 0 });
-                    onMove(0, 0);
+                onPanResponderGrant: (evt: any) => {
+                    const { knob, vec } = computeFromEvent(evt);
+                    setKnobOffset(knob);
+                    onMove(vec);
                 },
-                onPanResponderMove: (_evt: unknown, gestureState: GestureState) => {
-                    const next = clampOffset(gestureState);
-                    setKnobOffset(next);
-                    onMove(next.x, next.y);
+                onPanResponderMove: (evt: any, _gestureState: GestureState) => {
+                    const { knob, vec } = computeFromEvent(evt);
+                    setKnobOffset(knob);
+                    onMove(vec);
                 },
                 onPanResponderRelease: () => {
                     setKnobOffset({ x: 0, y: 0 });
@@ -53,7 +59,7 @@ export default function Joystick({ radius = 60, onMove, onRelease }: Readonly<Jo
                     onRelease();
                 },
             }),
-        [clampOffset, onMove, onRelease]
+        [computeFromEvent, onMove, onRelease]
     );
 
     const containerStyle = useMemo(

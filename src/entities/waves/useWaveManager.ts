@@ -3,23 +3,27 @@
 import { useEffect, useRef, useState } from 'react';
 import { WAVES } from './waveDefinitions';
 import type { WaveConfig } from './waveTypes';
+import { getPattern } from '../enemies/patterns';
 
 interface UseWaveManagerProps {
+  bounds: { width: number; height: number };
   onSpawnEnemy: (params: {
     kind: WaveConfig['enemies'][number]['kind'];
-    pattern: WaveConfig['enemies'][number]['patterns'][number];
+    pattern: WaveConfig['enemies'][number]['pattern'];
     baseSpeed: number;
     hpMultiplier: number;
+    initialPosition?: { x: number; y: number };
+    indexInFormation?: number;
   }) => void;
 }
 
-export function useWaveManager({ onSpawnEnemy }: UseWaveManagerProps) {
+export function useWaveManager({ onSpawnEnemy, bounds }: UseWaveManagerProps) {
   const [currentWaveIndex, setCurrentWaveIndex] = useState(0);
   const [enemiesRemaining, setEnemiesRemaining] = useState(0);
+  const [phase, setPhase] = useState<'between' | 'inWave'>('between');
   const spawnIndexRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onSpawnRef = useRef(onSpawnEnemy);
-  const selectedPatternRef = useRef<WaveConfig['enemies'][number]['patterns'][number] | null>(null);
   useEffect(() => { onSpawnRef.current = onSpawnEnemy; }, [onSpawnEnemy]);
 
   const currentWave = WAVES[currentWaveIndex] ?? WAVES[WAVES.length - 1];
@@ -27,33 +31,43 @@ export function useWaveManager({ onSpawnEnemy }: UseWaveManagerProps) {
   useEffect(() => {
     if (!currentWave) return;
 
-    // Prepare queue
-    const queue = currentWave.enemies.flatMap((group) =>
-      Array.from({ length: group.count }).map(() => group)
-    );
-    setEnemiesRemaining(queue.length);
-    spawnIndexRef.current = 0;
-    // Choose ONE pattern for the whole wave (no mixing)
-    const patterns = currentWave.enemies[0]?.patterns ?? ['straight'];
-    selectedPatternRef.current = patterns[Math.floor(Math.random() * patterns.length)];
+    // Between-wave announcer phase
+    setPhase('between');
 
-    // Resilient spawn loop using recursive timeout
-    function spawnNext() {
-      const i = spawnIndexRef.current;
-      if (i >= queue.length) return;
-      const group = queue[i];
-      onSpawnRef.current({
-        kind: group.kind,
-        pattern: selectedPatternRef.current ?? 'straight',
-        baseSpeed: currentWave.baseSpeed,
-        hpMultiplier: currentWave.hpMultiplier,
-      });
+    // Count enemies in the upcoming wave
+    const total = currentWave.enemies.reduce((acc, g) => acc + g.count, 0);
+    setEnemiesRemaining(total);
 
-      spawnIndexRef.current = i + 1;
-      timerRef.current = setTimeout(spawnNext, currentWave.spawnInterval);
-    }
-
-    spawnNext();
+    // Spawn entire wave after announcer timeout
+    timerRef.current = setTimeout(() => {
+      for (const group of currentWave.enemies) {
+        const pat = getPattern(group.pattern as unknown as string);
+        if (pat) {
+          const positions = pat.initialPositions(group.count, bounds.width, bounds.height);
+          positions.forEach((pos) => {
+            onSpawnRef.current({
+              kind: group.kind,
+              pattern: group.pattern,
+              baseSpeed: currentWave.baseSpeed,
+              hpMultiplier: currentWave.hpMultiplier,
+              initialPosition: { x: pos.x, y: pos.y },
+              indexInFormation: pos.indexInFormation,
+            });
+          });
+        } else {
+          // Legacy patterns fallback (no formation)
+          for (let i = 0; i < group.count; i++) {
+            onSpawnRef.current({
+              kind: group.kind,
+              pattern: group.pattern,
+              baseSpeed: currentWave.baseSpeed,
+              hpMultiplier: currentWave.hpMultiplier,
+            });
+          }
+        }
+      }
+      setPhase('inWave');
+    }, 2000);
 
     return () => {
       if (timerRef.current) {
@@ -61,15 +75,16 @@ export function useWaveManager({ onSpawnEnemy }: UseWaveManagerProps) {
         timerRef.current = null;
       }
     };
-  }, [currentWaveIndex]);
+  }, [currentWaveIndex, bounds.width, bounds.height]);
 
   function decrementAndAdvance() {
     setEnemiesRemaining((prev) => {
       const next = prev - 1;
       if (next <= 0) {
+        setPhase('between');
         setTimeout(() => {
           setCurrentWaveIndex((i) => i + 1); // next wave
-        }, 1200);
+        }, 2000);
       }
       return next;
     });
@@ -86,6 +101,8 @@ export function useWaveManager({ onSpawnEnemy }: UseWaveManagerProps) {
   return {
     currentWave,
     enemiesRemaining,
+    currentWaveId: currentWave?.id ?? 1,
+    phase,
     onEnemyKilled,
     onEnemyPassed,
   };

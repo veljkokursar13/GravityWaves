@@ -1,34 +1,39 @@
 import { useCallback, useMemo, useState } from 'react';
 
-type JoystickVector = { x: number; y: number };
+type Vector = { x: number; y: number };
 
-export function useJoystick() {
-    const [joystickVector, setJoystickVector] = useState<JoystickVector>({ x: 0, y: 0 });
+export default function useJoystick() {
+    const [vector, setVector] = useState<Vector>({ x: 0, y: 0 });
 
-    const onMove = useCallback((dx: number, dy: number) => {
-        const magnitude = Math.hypot(dx, dy);
+    const onMove = useCallback((raw: Vector) => {
+        let vx = raw.x;
+        let vy = raw.y;
+        const mag = Math.hypot(vx, vy);
 
-        if (magnitude <= 0.001) {
-            setJoystickVector({ x: 0, y: 0 });
+        // Small deadzone to prevent jitter at rest
+        if (mag < 0.05) {
+            setVector({ x: 0, y: 0 });
             return;
         }
 
-        const normalizedX = dx / magnitude;
-        const normalizedY = dy / magnitude;
-
-        setJoystickVector({ x: normalizedX, y: normalizedY });
+        // If magnitude > 1, clamp to unit circle; otherwise preserve shape (e.g., exponential gain)
+        if (mag > 1e-6 && mag > 1) {
+            vx /= mag;
+            vy /= mag;
+        }
+        setVector({ x: vx, y: vy });
     }, []);
 
     const onRelease = useCallback(() => {
-        setJoystickVector({ x: 0, y: 0 });
+        setVector({ x: 0, y: 0 });
     }, []);
 
     return useMemo(
         () => ({
-            vector: joystickVector,
+            vector,
             onMove,
             onRelease,
         }),
-        [joystickVector, onMove, onRelease]
+        [vector, onMove, onRelease]
     );
 }
