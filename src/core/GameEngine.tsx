@@ -13,8 +13,7 @@ import { detectShipEnemyCollisions, detectBulletEnemyCollisions } from "@/core/s
 import { useStore } from "@/store/store";
 import GameOverScreen from "@/core/overlays/GameOverScreen";
 import Hud from "@/core/overlays/Hud";
-import useJoystick from "@/hooks/useJoystick";
-import Joystick from "@/core/overlays/Joystick";
+import { useShipFollow } from "@/hooks/useShipFollow";
 import WaveAnouncer from "@/core/overlays/WaveAnouncer";
 
 export default function GameEngine() {
@@ -70,8 +69,9 @@ export default function GameEngine() {
         }
     }, [appState, width, height]);
 
-    // Joystick controls
-    const { vector, onMove, onRelease } = useJoystick();
+    // Drag-follow controls
+    const shipFollow = useShipFollow(ship, { width, height });
+    const isTouchingRef = useRef<boolean>(false);
 
     // Helper: Process bullet-enemy collisions
     const processBulletCollisions = () => {
@@ -116,44 +116,23 @@ export default function GameEngine() {
         }
     };
 
-    // Centralized game loop
+    // Frame update via useGameLoop
     useGameLoop((delta) => {
-        const dt = Math.min(0.03, Math.max(0, delta));
-
-        velocityX.current = (ship.x - previousShipX.current) / Math.max(dt, 1e-6);
+        velocityX.current = (ship.x - previousShipX.current) / Math.max(delta, 1e-6);
         previousShipX.current = ship.x;
 
-        // ----- JOYSTICK MOVEMENT -----
-        // vector is normalized [-1, 1] with deadzone applied by the hook
-        let vx = vector.x;
-        let vy = vector.y;
+        // Apply finger-follow to ship position
+        setShip((prev) => {
+            const next = shipFollow.update(prev);
+            return { ...prev, x: next.x, y: next.y };
+        });
 
-        // Optional extra deadzone
-        const mag = Math.hypot(vx, vy);
-        if (mag < 0.05) {
-            vx = 0;
-            vy = 0;
-        }
-
-        const speed = ship.speed ?? 450; // px/s
-        let nextX = ship.x + vx * speed * dt;
-        let nextY = ship.y + vy * speed * dt; // RN y+ is down, so keep +
-        // Clamp to screen
-        const halfW = ship.width / 2;
-        const halfH = ship.height / 2;
-        if (nextX < halfW) nextX = halfW;
-        if (nextX > width - halfW) nextX = width - halfW;
-        if (nextY < halfH) nextY = halfH;
-        if (nextY > height - halfH) nextY = height - halfH;
-        if (nextX !== ship.x || nextY !== ship.y) {
-            setShip(prev => ({ ...prev, x: nextX, y: nextY }));
-        }
-        // Auto-fire while moving
-        if (mag > 0.05) {
+        // Auto-fire while finger is down
+        if (isTouchingRef.current) {
             shoot(ship.x, ship.y, ship.height);
         }
 
-        updateBullets(dt);
+        updateBullets(delta);
         processBulletCollisions();
         checkGameOver();
     }, paused || isGameOver);
@@ -161,7 +140,10 @@ export default function GameEngine() {
     // Render
     return(
         <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-            <Canvas style={{ flex: 1, backgroundColor: 'transparent' }}>
+            <Canvas
+                pointerEvents="none"
+                style={{ flex: 1, backgroundColor: 'transparent' }}
+            >
                 <Group>
                     {/* Render bullets first (behind everything) */}
                     {bullets.map(bullet => (
@@ -179,8 +161,20 @@ export default function GameEngine() {
             <Hud />
             {/* Wave Announcer between waves */}
             {phase === 'between' && <WaveAnouncer waveId={currentWaveId} />}
-            {/* Joystick */}
-            <Joystick onMove={onMove} onRelease={onRelease} />
+            {/* Full-screen touch layer for dragging */}
+            <View
+                style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1000 }}
+                onStartShouldSetResponder={() => true}
+                onMoveShouldSetResponder={() => true}
+                onResponderGrant={(e: any) => { isTouchingRef.current = true; shipFollow.onTouch(e); }}
+                onResponderMove={(e: any) => { isTouchingRef.current = true; shipFollow.onTouch(e); }}
+                onResponderRelease={() => { isTouchingRef.current = false; shipFollow.onTouchEnd(); }}
+                onResponderTerminate={() => { isTouchingRef.current = false; shipFollow.onTouchEnd(); }}
+                onResponderTerminationRequest={() => true}
+                onTouchStart={(e: any) => { isTouchingRef.current = true; shipFollow.onTouch(e); }}
+                onTouchMove={(e: any) => { isTouchingRef.current = true; shipFollow.onTouch(e); }}
+                onTouchEnd={() => { isTouchingRef.current = false; shipFollow.onTouchEnd(); }}
+            />
             {/* Game Over Overlay */}
             {isGameOver && <GameOverScreen />}
         </View>

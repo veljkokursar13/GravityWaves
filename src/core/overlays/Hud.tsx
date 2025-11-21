@@ -18,7 +18,7 @@ export default function Hud() {
 const styles = StyleSheet.create({
     hud: {
         position: 'absolute',
-        top: 35,
+        top: 40,
         left: 12,
         width: '100%',
     },
@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
 
     },
     line: {
-        fontSize: 20,
+        fontSize: 24,
         color: '#fff',
         fontFamily: 'OrbitronBold',
     },

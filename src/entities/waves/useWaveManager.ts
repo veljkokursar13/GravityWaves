@@ -95,6 +95,7 @@ export function useWaveManager({ onSpawnEnemy, bounds }: UseWaveManagerProps) {
   }
 
   function onEnemyPassed() {
+    // Enemy passed off-screen; decrement remaining and advance if none left
     decrementAndAdvance();
   }
 

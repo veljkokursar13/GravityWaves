@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 
 export default function WaveAnouncer({ waveId }: Readonly<{ waveId: number }>) {
   return (
-    <View style={WaveAnouncerLocalStyles.container}>
+    <View pointerEvents="none" style={WaveAnouncerLocalStyles.container}>
       <Text style={WaveAnouncerLocalStyles.title}>Wave {waveId}</Text>
       <Text style={WaveAnouncerLocalStyles.subtitle}>Get Ready</Text>
     </View>
@@ -20,6 +20,7 @@ const WaveAnouncerLocalStyles = StyleSheet.create({
 		justifyContent: 'center',
 		alignItems: 'center',
 		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		zIndex: 1000,
 	},
 	title: {
 		fontSize: 28,
