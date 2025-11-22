@@ -1,6 +1,7 @@
 import { Canvas, Group } from "@shopify/react-native-skia";
 import { View, useWindowDimensions } from "react-native";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { GestureDetector } from "react-native-gesture-handler";
 import Ship from "@/entities/ship/Ship";
 import EnemyRenderer from "@/entities/enemies/EnemyRenderer";
 import Bullet from "@/entities/projectiles/Bullet";
@@ -69,9 +70,41 @@ export default function GameEngine() {
         }
     }, [appState, width, height]);
 
-    // Drag-follow controls
-    const shipFollow = useShipFollow(ship, { width, height });
+    // Touch state for auto-fire
     const isTouchingRef = useRef<boolean>(false);
+    
+    // Callback to apply ship movement delta (called from gesture handler)
+    const handleShipMove = useCallback((dx: number, dy: number) => {
+        setShip((prev) => {
+            const sensitivity = 1.5;
+            let nx = prev.x + dx * sensitivity;
+            let ny = prev.y + dy * sensitivity;
+            
+            // Clamp to bounds
+            const halfW = prev.width / 2;
+            const halfH = prev.height / 2;
+            const minY = Math.max(halfH, height * 0.6 + halfH);
+            const maxY = height - halfH;
+            
+            nx = Math.max(halfW, Math.min(width - halfW, nx));
+            ny = Math.max(minY, Math.min(maxY, ny));
+            
+            return { ...prev, x: nx, y: ny };
+        });
+    }, [width, height]);
+    
+    // Callback to update touch state (for auto-fire)
+    const handleTouchState = useCallback((touching: boolean) => {
+        isTouchingRef.current = touching;
+    }, []);
+    
+    // Create gesture handler
+    const panGesture = useShipFollow(
+        ship, 
+        { width, height }, 
+        handleShipMove,
+        handleTouchState
+    );
 
     // Helper: Process bullet-enemy collisions
     const processBulletCollisions = () => {
@@ -118,14 +151,11 @@ export default function GameEngine() {
 
     // Frame update via useGameLoop
     useGameLoop((delta) => {
-        velocityX.current = (ship.x - previousShipX.current) / Math.max(delta, 1e-6);
+        const dt = Math.min(0.05, Math.max(0, delta)); // safety clamp
+        
+        // Calculate velocity for banking effect
+        velocityX.current = (ship.x - previousShipX.current) / Math.max(dt, 1e-6);
         previousShipX.current = ship.x;
-
-        // Apply finger-follow to ship position
-        setShip((prev) => {
-            const next = shipFollow.update(prev);
-            return { ...prev, x: next.x, y: next.y };
-        });
 
         // Auto-fire while finger is down
         if (isTouchingRef.current) {
@@ -157,25 +187,30 @@ export default function GameEngine() {
                     <Ship ship={ship} velocityX={velocityX.current} />
                 </Group>
             </Canvas>
-            {/* HUD Overlay (score only) */}
+            
+            {/* Gesture detector for ship control - native performance */}
+            {!isGameOver && phase !== 'between' && (
+                <GestureDetector gesture={panGesture}>
+                    <View
+                        style={{ 
+                            position: 'absolute', 
+                            top: 0, 
+                            right: 0, 
+                            bottom: 0, 
+                            left: 0, 
+                            zIndex: 1 
+                        }}
+                    />
+                </GestureDetector>
+            )}
+            
+            {/* HUD Overlay (score only) - higher zIndex to be on top */}
             <Hud />
+            
             {/* Wave Announcer between waves */}
             {phase === 'between' && <WaveAnouncer waveId={currentWaveId} />}
-            {/* Full-screen touch layer for dragging */}
-            <View
-                style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1000 }}
-                onStartShouldSetResponder={() => true}
-                onMoveShouldSetResponder={() => true}
-                onResponderGrant={(e: any) => { isTouchingRef.current = true; shipFollow.onTouch(e); }}
-                onResponderMove={(e: any) => { isTouchingRef.current = true; shipFollow.onTouch(e); }}
-                onResponderRelease={() => { isTouchingRef.current = false; shipFollow.onTouchEnd(); }}
-                onResponderTerminate={() => { isTouchingRef.current = false; shipFollow.onTouchEnd(); }}
-                onResponderTerminationRequest={() => true}
-                onTouchStart={(e: any) => { isTouchingRef.current = true; shipFollow.onTouch(e); }}
-                onTouchMove={(e: any) => { isTouchingRef.current = true; shipFollow.onTouch(e); }}
-                onTouchEnd={() => { isTouchingRef.current = false; shipFollow.onTouchEnd(); }}
-            />
-            {/* Game Over Overlay */}
+            
+            {/* Game Over Overlay - highest priority */}
             {isGameOver && <GameOverScreen />}
         </View>
     )

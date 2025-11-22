@@ -1,7 +1,9 @@
+import 'react-native-gesture-handler';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from '@/hooks/useFonts';
 import { ThemeProvider } from '@/context/themeProvider';
 import DeepSpace from '@/context/themeComponents/DeepSpace';
@@ -34,19 +36,22 @@ export default function RootShellLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <AudioProvider
-          preload={[
-            { id: 'gravity_waves_soundtrack', source: require('../src/assets/audio/gravity_waves_soundtrack.mp3'), kind: 'music' },
-          ]}
-        >
-          <DeepSpace />
-          <Stars />
-          <AudioControls />
-          <Slot />
-        </AudioProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    // @ts-expect-error - GestureHandlerRootView types don't include children but it works at runtime
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AudioProvider
+            preload={[
+              { id: 'gravity_waves_soundtrack', source: require('../src/assets/audio/gravity_waves_soundtrack.mp3'), kind: 'music' },
+            ]}
+          >
+            <DeepSpace />
+            <Stars />
+            <AudioControls />
+            <Slot />
+          </AudioProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
