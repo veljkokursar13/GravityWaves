@@ -3,6 +3,7 @@ import { View, useWindowDimensions } from "react-native";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { GestureDetector } from "react-native-gesture-handler";
 import Ship from "@/entities/ship/Ship";
+import MuzzleFlash from "@/entities/ship/MuzzleFlash";
 import EnemyRenderer from "@/entities/enemies/EnemyRenderer";
 import Bullet from "@/entities/projectiles/Bullet";
 import { initialShip, type Ship as ShipType } from "@/entities/ship/types";
@@ -15,6 +16,7 @@ import { useStore } from "@/store/store";
 import GameOverScreen from "@/core/overlays/GameOverScreen";
 import Hud from "@/core/overlays/Hud";
 import { useShipFollow } from "@/hooks/useShipFollow";
+import { useCameraShake } from "@/hooks/useCameraShake";
 import WaveAnouncer from "@/core/overlays/WaveAnouncer";
 
 export default function GameEngine() {
@@ -55,6 +57,10 @@ export default function GameEngine() {
     const previousShipX = useRef<number>(width / 2);
     const velocityX = useRef<number>(0);
     const gameOverTriggered = useRef<boolean>(false);
+    
+    // Muzzle flash state
+    const [muzzleFlashTime, setMuzzleFlashTime] = useState<number>(999); // Time since last shot
+    const lastShotPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
     // Reset game when coming back from game over
     useEffect(() => {
@@ -106,6 +112,9 @@ export default function GameEngine() {
         handleTouchState
     );
 
+    // Camera shake for impacts
+    const { offset: cameraOffset, shake } = useCameraShake();
+
     // Helper: Process bullet-enemy collisions
     const processBulletCollisions = () => {
         const bulletCollisionsAll = detectBulletEnemyCollisions(bullets, enemies);
@@ -134,6 +143,8 @@ export default function GameEngine() {
                 onEnemyKilled();
                 addScore(10 * (enemy.kind === 'boss' ? 10 : 1));
                 addKills(1);
+                // Camera shake on kill (subtle AAA polish)
+                shake(enemy.kind === 'boss' ? 5 : 2);
             } else {
                 damageEnemy(enemy.id, bullet.damage);
             }
@@ -159,8 +170,17 @@ export default function GameEngine() {
 
         // Auto-fire while finger is down
         if (isTouchingRef.current) {
+            const bulletCountBefore = bullets.length;
             shoot(ship.x, ship.y, ship.height);
+            // Trigger muzzle flash if a bullet was actually fired
+            if (bullets.length > bulletCountBefore || muzzleFlashTime < 0.03) {
+                setMuzzleFlashTime(0);
+                lastShotPositionRef.current = { x: ship.x, y: ship.y - ship.height / 2 };
+            }
         }
+        
+        // Update muzzle flash timer
+        setMuzzleFlashTime(prev => prev + dt);
 
         updateBullets(delta);
         processBulletCollisions();
@@ -174,7 +194,7 @@ export default function GameEngine() {
                 pointerEvents="none"
                 style={{ flex: 1, backgroundColor: 'transparent' }}
             >
-                <Group>
+                <Group transform={[{ translateX: cameraOffset.x }, { translateY: cameraOffset.y }]}>
                     {/* Render bullets first (behind everything) */}
                     {bullets.map(bullet => (
                         <Bullet key={bullet.id} bullet={bullet} />
@@ -185,6 +205,14 @@ export default function GameEngine() {
                     ))}
                     {/* Render ship on top */}
                     <Ship ship={ship} velocityX={velocityX.current} />
+                    {/* Muzzle flash effect (30ms) */}
+                    {muzzleFlashTime < 0.03 && (
+                        <MuzzleFlash 
+                            x={lastShotPositionRef.current.x} 
+                            y={lastShotPositionRef.current.y} 
+                            time={muzzleFlashTime} 
+                        />
+                    )}
                 </Group>
             </Canvas>
             

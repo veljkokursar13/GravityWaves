@@ -1,5 +1,5 @@
-// Bullet rendering using Skia lines (glow + core), no image
-import { Group, Line } from '@shopify/react-native-skia';
+// Bullet rendering with enhanced glow and motion trail
+import { BlurMask, Group, Line } from '@shopify/react-native-skia';
 import type { SpaceShipProjectile } from './types';
 
 interface ShipBulletProps {
@@ -14,8 +14,8 @@ export default function ShipBullet({ bullet }: ShipBulletProps) {
   const angleDeg = typeof bullet.direction === 'number' ? bullet.direction : -90;
   const angleRad = (angleDeg * Math.PI) / 180;
 
-  // Tail length derived from bullet height
-  const length = Math.max(10, bullet.height);
+  // Tail length derived from bullet height (slightly longer for better trail)
+  const length = Math.max(12, bullet.height);
   const dx = Math.cos(angleRad) * length;
   const dy = Math.sin(angleRad) * length;
 
@@ -24,19 +24,30 @@ export default function ShipBullet({ bullet }: ShipBulletProps) {
 
   return (
     <Group>
-      {/* Glow */}
+      {/* Outer glow with blur (AAA effect) */}
       <Line
         p1={{ x: x1, y: y1 }}
         p2={{ x: x2, y: y2 }}
-        color="rgba(0,255,255,0.5)"
-        strokeWidth={6}
+        color="rgba(0,255,255,0.6)"
+        strokeWidth={8}
+      >
+        <BlurMask blur={4} style="normal" />
+      </Line>
+      
+      {/* Mid glow */}
+      <Line
+        p1={{ x: x1, y: y1 }}
+        p2={{ x: x2, y: y2 }}
+        color="rgba(0,220,255,0.8)"
+        strokeWidth={5}
       />
-      {/* Core */}
+      
+      {/* Core (bright) */}
       <Line
         p1={{ x: x1, y: y1 }}
         p2={{ x: x2, y: y2 }}
-        color="rgba(0,180,255,0.9)"
-        strokeWidth={3}
+        color="rgba(255,255,255,0.95)"
+        strokeWidth={2}
       />
     </Group>
   );

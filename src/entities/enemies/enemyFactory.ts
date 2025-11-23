@@ -18,8 +18,8 @@ export function createEnemy(params: EnemySpawnParams): Enemy {
   const id = `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
   // Base stats per enemy type
-  let width = 50;
-  let height = 50;
+  let width = 40;
+  let height = 40;
   let baseHp = 1;
   // add small variance to speed for organic feel (±10%)
   const base = baseSpeed * (0.9 + Math.random() * 0.2);
@@ -27,8 +27,8 @@ export function createEnemy(params: EnemySpawnParams): Enemy {
 
   switch (kind) {
     case 'drone':
-      width = 52;
-      height = 52;
+      width = 42;
+      height = 42;
       speed = base;
       break;
 

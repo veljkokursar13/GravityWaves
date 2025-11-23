@@ -1,4 +1,4 @@
-//Hud shows only the score (top-left)
+//Hud shows only the score (top-left) with AAA glow
 import { View, Text, StyleSheet } from 'react-native';
 import { useScore } from '@/hooks/useScore';
 import { useFonts } from '@/hooks/useFonts';
@@ -25,11 +25,14 @@ const styles = StyleSheet.create({
     pill: {
         paddingHorizontal: 10,
         paddingVertical: 6,
-
     },
     line: {
         fontSize: 24,
         color: '#fff',
         fontFamily: 'OrbitronBold',
+        // AAA text glow effect
+        textShadowColor: 'rgba(0, 220, 255, 0.8)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10,
     },
 });

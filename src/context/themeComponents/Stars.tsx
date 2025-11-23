@@ -1,5 +1,6 @@
-//Stars is a component that creates stars in the space
+//Stars component with fade-in animation for AAA polish
 import { View, StyleSheet } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useStarsLayers } from '../../core/systems/useStars';
 import { memo } from 'react';
 import type { Star } from '../../core/systems/useStars';
@@ -26,7 +27,11 @@ export const Stars = memo(() => {
     const { backgroundStars, farStars, nearStars } = useStarsLayers();
 
     return (
-        <View pointerEvents="none" style={styles.container}>
+        <Animated.View 
+            pointerEvents="none" 
+            style={styles.container}
+            entering={FadeIn.duration(1200)}
+        >
             {backgroundStars.map(star => (
                 <StarDot key={star.id} star={star} opacity={0.4} />
             ))}
@@ -36,7 +41,7 @@ export const Stars = memo(() => {
             {nearStars.map(star => (
                 <StarDot key={star.id} star={star} opacity={0.9} />
             ))}
-        </View>
+        </Animated.View>
     );
 });
 

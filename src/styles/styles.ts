@@ -21,23 +21,28 @@ const styles = StyleSheet.create({
 
 mainMenuTitle: {
   fontFamily: 'AstronValleyBold',
-  fontSize: 36,
+  fontSize: 48,
   color: '#fff',
   textAlign: 'center',
   marginBottom: 16, 
-  textShadowColor: '#000',
-  textShadowOffset: { width: 1, height: 1 },
-  textShadowRadius: 2,
+  // AAA neon glow effect
+  textShadowColor: 'rgba(0, 220, 255, 1)',
+  textShadowOffset: { width: 0, height: 0 },
+  textShadowRadius: 20,
  },
   mainMenuDescription: {
     fontFamily: 'OrbitronBold',
     fontSize: 16,
     color: '#ffffff',
-    opacity: 0.9,
+    opacity: 0.95,
     marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 32,
     textAlign: 'center',
     paddingHorizontal: 24,
+    // Subtle glow
+    textShadowColor: 'rgba(162, 171, 88, 0.7)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
 
   pauseIcon: {
