@@ -10,7 +10,7 @@ import ParticleExplosion from "@/entities/effects/ParticleExplosion";
 import { initialShip, type Ship as ShipType } from "@/entities/ship/types";
 import { useEnemies } from "@/entities/enemies/useEnemies";
 import { useWaveManager } from "@/entities/waves/useWaveManager";
-import { useShipBullets } from "@/entities/projectiles/useBullets";
+import { useBulletsOptimized } from "@/entities/projectiles/useBulletsOptimized";
 import { useGameLoop } from "@/hooks/useGameLoop";
 import { useCombo } from "@/hooks/useCombo";
 import { useShootBooster } from "@/hooks/useShootBooster";
@@ -59,19 +59,21 @@ export default function GameEngine() {
     });
     waveEnemyPassedRef.current = waveEnemyPassed;
 
-    const { bullets, updateBullets, shoot, removeBullet } = useShipBullets();
+    const { bullets, updateBulletsRef, shoot, removeBullet } = useBulletsOptimized();
     
     // Refs for game state
     const previousShipX = useRef<number>(width / 2);
     const velocityX = useRef<number>(0);
     const gameOverTriggered = useRef<boolean>(false);
     
-    // Muzzle flash state
-    const [muzzleFlashTime, setMuzzleFlashTime] = useState<number>(999); // Time since last shot
+    // Muzzle flash - use ref for frame updates, state for periodic rendering
+    const muzzleFlashTimeRef = useRef<number>(999);
+    const [muzzleFlashTime, setMuzzleFlashTime] = useState<number>(999);
     const lastShotPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const lastShotWasDoubleRef = useRef<boolean>(false);
     
-    // Particle explosions
+    // Particle explosions - use ref for frame updates, state for periodic rendering
+    const explosionsRef = useRef<Array<{ id: string; x: number; y: number; time: number; color: string }>>([]);
     const [explosions, setExplosions] = useState<Array<{ id: string; x: number; y: number; time: number; color: string }>>([]);
     
     // Combo system
@@ -102,6 +104,16 @@ export default function GameEngine() {
             resetCombo(); // Reset combo
         }
     }, [appState, width, height, resetLives, resetCombo]);
+
+    // Periodic sync from refs to state for visual updates (10fps instead of 60fps)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setMuzzleFlashTime(muzzleFlashTimeRef.current);
+            setExplosions([...explosionsRef.current]);
+        }, 100); // 10 times per second
+        
+        return () => clearInterval(interval);
+    }, []);
 
     // Touch state for auto-fire
     const isTouchingRef = useRef<boolean>(false);
@@ -181,17 +193,16 @@ export default function GameEngine() {
                 // Particle explosion with cap for performance (max 8 concurrent)
                 const explosionColor = enemy.kind === 'boss' ? '#ff4400' : '#00dcff';
                 const explosionId = `explosion-${enemy.id}-${Date.now()}`;
-                setExplosions(prev => {
-                    const newExplosions = [...prev, {
-                        id: explosionId,
-                        x: enemy.x,
-                        y: enemy.y,
-                        time: 0,
-                        color: explosionColor
-                    }];
-                    // Cap at 8 explosions for smooth 60fps performance
-                    return newExplosions.slice(-8);
-                });
+                // Update ref directly for performance - no setState
+                const newExplosions = [...explosionsRef.current, {
+                    id: explosionId,
+                    x: enemy.x,
+                    y: enemy.y,
+                    time: 0,
+                    color: explosionColor
+                }];
+                // Cap at 8 explosions for smooth 60fps performance
+                explosionsRef.current = newExplosions.slice(-8);
             } else {
                 damageEnemy(enemy.id, bullet.damage);
             }
@@ -232,22 +243,20 @@ export default function GameEngine() {
             const bulletCountBefore = bullets.length;
             shoot(ship.x, ship.y, ship.height, doubleShot);
             // Trigger muzzle flash if a bullet was actually fired
-            if (bullets.length > bulletCountBefore || muzzleFlashTime < 0.03) {
-                setMuzzleFlashTime(0);
+            if (bullets.length > bulletCountBefore || muzzleFlashTimeRef.current < 0.03) {
+                muzzleFlashTimeRef.current = 0;
                 lastShotPositionRef.current = { x: ship.x, y: ship.y - ship.height / 2 };
                 lastShotWasDoubleRef.current = doubleShot;
             }
         }
         
-        // Update muzzle flash timer
-        setMuzzleFlashTime(prev => prev + dt);
+        // Update muzzle flash timer (ref only - no setState)
+        muzzleFlashTimeRef.current = muzzleFlashTimeRef.current + dt;
         
-        // Update particle explosions with 600ms cleanup
-        setExplosions(prev => {
-            return prev
-                .map(exp => ({ ...exp, time: exp.time + dt }))
-                .filter(exp => exp.time < 0.6); // Remove after 600ms (extended for debris)
-        });
+        // Update particle explosions with 600ms cleanup (ref only - no setState)
+        explosionsRef.current = explosionsRef.current
+            .map(exp => ({ ...exp, time: exp.time + dt }))
+            .filter(exp => exp.time < 0.6); // Remove after 600ms (extended for debris)
         
         // Check for boss wave (wave 10) and trigger intro at wave start
         if (currentWaveId === 10 && !bossIntroShownRef.current && phase === 'spawning') {
@@ -255,7 +264,7 @@ export default function GameEngine() {
             bossIntroShownRef.current = true;
         }
 
-        updateBullets(delta);
+        updateBulletsRef(delta); // Updates ref only, not state
         processBulletCollisions();
         checkGameOver();
     }, paused || isGameOver);

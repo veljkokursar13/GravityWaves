@@ -18,22 +18,31 @@ type Store = {
     setPaused: (paused: boolean) => void;
     currentWave: number;
     setCurrentWave: (wave: number) => void;
+    resetGame: () => void;
 }
+
+const INITIAL_GAME_STATE = {
+    score: 0,
+    kills: 0,
+    currentWave: 1,
+};
 
 export const useStore = create<Store>()(
     persist(
         (set) => ({
-            score: 0,
+            ...INITIAL_GAME_STATE,
             setScore: (score: number) => set({ score }),
             addScore: (delta: number) => set((state) => ({ score: state.score + delta })),
-            kills: 0,
             addKills: (delta: number) => set((state) => ({ kills: Math.max(0, state.kills + delta) })),
             appState: 'menu',
             setAppState: (state: AppState) => set({ appState: state }),
             paused: false,
             setPaused: (paused: boolean) => set({ paused }),
-            currentWave: 1,
             setCurrentWave: (wave: number) => set({ currentWave: wave }),
+            resetGame: () => set({
+                ...INITIAL_GAME_STATE,
+                appState: 'game',
+            }),
         }),
         {
             name: 'app-store',

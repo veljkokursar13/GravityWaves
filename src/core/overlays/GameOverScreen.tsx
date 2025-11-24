@@ -10,7 +10,7 @@ import { ResetGameButton } from '@/ui/ResetGameButton';
 
 export default function GameOverScreen() {
   const appState = useStore((state) => state.appState);
-  const { score, setAppState, setScore } = useStore();
+  const { score, resetGame, setAppState, setScore } = useStore();
 
   if (appState !== 'gameover') return null;
 
@@ -25,7 +25,8 @@ export default function GameOverScreen() {
   }
 
   const handleResetGame = () => {
-    // Navigate to game route (this will trigger GameEngine reset)
+    // Reset all game state (score, kills, wave, etc.)
+    resetGame();
     router.replace('/game');
   };
 
