@@ -23,6 +23,17 @@ interface SpawnEnemyConfig {
 export function useEnemies({ bounds, shipPosition, onEnemyPassed }: UseEnemiesProps) {
   const [enemies, setEnemies] = useState<Enemy[]>([]);
   const lastTimeRef = useRef<number | null>(null);
+  const shipPositionRef = useRef(shipPosition); // Use ref to avoid recreating animation loop
+  const onEnemyPassedRef = useRef(onEnemyPassed); // Use ref to avoid recreating animation loop
+  
+  // Update refs without causing effect re-run
+  useEffect(() => {
+    shipPositionRef.current = shipPosition;
+  }, [shipPosition]);
+  
+  useEffect(() => {
+    onEnemyPassedRef.current = onEnemyPassed;
+  }, [onEnemyPassed]);
 
   function spawnEnemy(config: SpawnEnemyConfig) {
     const x = config.initialPosition?.x ?? (Math.random() * (bounds.width - 80) + 40);
@@ -76,8 +87,8 @@ export function useEnemies({ bounds, shipPosition, onEnemyPassed }: UseEnemiesPr
             e, 
             bounds, 
             dt,
-            shipPosition?.x,
-            shipPosition?.y
+            shipPositionRef.current?.x,
+            shipPositionRef.current?.y
           );
           if (isEnemyOffscreen(n, bounds)) {
             passedIds.push(n.id);
@@ -87,8 +98,8 @@ export function useEnemies({ bounds, shipPosition, onEnemyPassed }: UseEnemiesPr
         }
         return updated;
       });
-      if (passedIds.length && onEnemyPassed) {
-        passedIds.forEach(onEnemyPassed);
+      if (passedIds.length && onEnemyPassedRef.current) {
+        passedIds.forEach(onEnemyPassedRef.current);
       }
 
       frameId = requestAnimationFrame(loop);
@@ -97,7 +108,7 @@ export function useEnemies({ bounds, shipPosition, onEnemyPassed }: UseEnemiesPr
     frameId = requestAnimationFrame(loop);
 
     return () => cancelAnimationFrame(frameId);
-  }, [bounds.width, bounds.height, shipPosition?.x, shipPosition?.y]);
+  }, [bounds.width, bounds.height]); // Removed shipPosition from deps - use ref instead
 
   return {
     enemies,

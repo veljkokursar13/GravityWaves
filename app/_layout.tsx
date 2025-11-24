@@ -8,6 +8,7 @@ import { useFonts } from '@/hooks/useFonts';
 import { ThemeProvider } from '@/context/themeProvider';
 import DeepSpace from '@/context/themeComponents/DeepSpace';
 import { Stars } from '@/context/themeComponents/Stars';
+import Nebula from '@/context/themeComponents/Nebula';
 import { AudioProvider } from '@/audio/AudioProvider';
 import { AudioControls } from '@/components/AudioControls';
 
@@ -46,6 +47,7 @@ export default function RootShellLayout() {
             ]}
           >
             <DeepSpace />
+            <Nebula />
             <Stars />
             <AudioControls />
             <Slot />

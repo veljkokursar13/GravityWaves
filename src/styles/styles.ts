@@ -26,9 +26,9 @@ mainMenuTitle: {
   textAlign: 'center',
   marginBottom: 16, 
   // AAA neon glow effect
-  textShadowColor: 'rgba(0, 220, 255, 1)',
+  textShadowColor: 'rgb(255, 255, 255)',
   textShadowOffset: { width: 0, height: 0 },
-  textShadowRadius: 20,
+  textShadowRadius: 10,
  },
   mainMenuDescription: {
     fontFamily: 'OrbitronBold',

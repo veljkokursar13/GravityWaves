@@ -22,6 +22,9 @@ export default function ShipBullet({ bullet }: ShipBulletProps) {
   const x2 = x1 + dx;
   const y2 = y1 + dy;
 
+  // Note: Bullet movement is handled by useBullets.ts updateBullets()
+  // This component only renders - never mutate props during render
+
   return (
     <Group>
       {/* Outer glow with blur (AAA effect) */}

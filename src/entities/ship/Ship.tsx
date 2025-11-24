@@ -6,28 +6,38 @@ import type { Ship as ShipType } from './types';
 interface ShipProps {
   ship: ShipType;
   velocityX: number;
+  isInvincible?: boolean;
 }
 
-const MAX_LEAN_RADIANS = 0.18; // Max tilt angle
+const MAX_ROTATION_DEG = 20; // Max tilt angle in degrees (±20°)
 
-export default function Ship({ ship, velocityX }: Readonly<ShipProps>) {
+export default function Ship({ ship, velocityX, isInvincible = false }: Readonly<ShipProps>) {
   const shipImage = useImage(require('../../assets/images/ship.png'));
 
-  // Banking animation: ship tilts when moving horizontally
+  // Banking animation: ship rotates when moving horizontally using atan for natural arc
   const leanAngle = useMemo(() => {
-    // Normalize velocity to -1...1 range
-    const normalized = Math.max(-1, Math.min(1, velocityX / 400));
-    return normalized * MAX_LEAN_RADIANS * (Math.PI / 180);
+    // Use atan for natural banking curve, scale by 0.8 for subtle effect
+    const rotation = Math.atan(velocityX) * 0.8;
+    // Clamp to ±20 degrees (convert to radians)
+    const maxRadians = (MAX_ROTATION_DEG * Math.PI) / 180;
+    return Math.max(-maxRadians, Math.min(maxRadians, rotation));
   }, [velocityX]);
+
+  // Flicker effect when invincible (alternates opacity every ~150ms)
+  // Recalculates each frame to create visual flicker effect
+  const opacity = isInvincible 
+    ? (Math.floor(Date.now() / 150) % 2 === 0 ? 0.4 : 1.0)
+    : 1.0;
 
   if (!shipImage) return null;
 
   return (
     <Group
+      opacity={opacity}
       transform={[
         { translateX: ship.x },
         { translateY: ship.y },
-        { skewX: leanAngle }, // Rotate for banking effect
+        { rotate: leanAngle }, // Proper rotation for banking effect
         { translateX: -ship.width / 2 },
         { translateY: -ship.height / 2 },
       ]}

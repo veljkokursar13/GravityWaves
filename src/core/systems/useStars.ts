@@ -9,6 +9,8 @@ export type Star = {
   y: number;
   size: number;
   color: string;
+  hasGlow: boolean;
+  glowIntensity: number; // 1x, 1.5x, or 2.5x multiplier for glow blur
 };
 
 export type StarsLayers = {
@@ -28,12 +30,25 @@ const BACKGROUND_SPEED = 10; // px/sec
 function generateStars(count: number, width: number, height: number, color: string, sizeMin: number, sizeMax: number, prefix: string): Star[] {
   return Array.from({ length: count }, (_, index) => {
     const size = sizeMin + Math.random() * (sizeMax - sizeMin);
+    const hasGlow = Math.random() < 0.1; // 10% of stars get bloom glow
+    
+    // Varied glow intensity for visual interest
+    let glowIntensity = 1.0;
+    if (hasGlow) {
+      const rand = Math.random();
+      if (rand < 0.33) glowIntensity = 1.0;
+      else if (rand < 0.66) glowIntensity = 1.5;
+      else glowIntensity = 2.5;
+    }
+    
     return {
       id: `${prefix}-${index}`,
       x: Math.random() * width,
       y: Math.random() * height,
       size,
       color,
+      hasGlow,
+      glowIntensity,
     };
   });
 }
@@ -59,9 +74,9 @@ export const useStarsLayers = (): StarsLayers => {
 
   const initial = useMemo(() => {
     return {
-      near: generateStars(NEAR_COUNT, width, height, colors.text, 1.2, 2.2, 'near'),
-      far: generateStars(FAR_COUNT, width, height, colors.text, 1.0, 2.0, 'far'),
-      background: generateStars(BACKGROUND_COUNT, width, height, colors.text, 0.8, 1.8, 'bg'),
+      near: generateStars(NEAR_COUNT, width, height, colors.text, 0.6, 1.2, 'near'),
+      far: generateStars(FAR_COUNT, width, height, colors.text, 0.4, 0.8, 'far'),
+      background: generateStars(BACKGROUND_COUNT, width, height, colors.text, 0.3, 0.6, 'bg'),
     };
   }, [colors.text, width, height]);
 

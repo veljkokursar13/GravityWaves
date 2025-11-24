@@ -61,9 +61,9 @@ const WaveAnouncerLocalStyles = StyleSheet.create({
 		fontFamily: 'OrbitronBold',
 		textAlign: 'center',
 		// Neon glow effect
-		textShadowColor: 'rgba(0, 220, 255, 0.9)',
+		textShadowColor: 'rgba(0, 220, 255, 0.3)',
 		textShadowOffset: { width: 0, height: 0 },
-		textShadowRadius: 15,
+		textShadowRadius: 5,
 	},
 	subtitle: {
 		fontSize: 20,
@@ -72,8 +72,8 @@ const WaveAnouncerLocalStyles = StyleSheet.create({
 		fontFamily: 'Orbitron',
 		textAlign: 'center',
 		// Subtle glow
-		textShadowColor: 'rgba(162, 171, 88, 0.6)',
+		textShadowColor: 'rgba(162, 171, 88, 0.3)',
 		textShadowOffset: { width: 0, height: 0 },
-		textShadowRadius: 8,
+		textShadowRadius: 5,
 	},
 });

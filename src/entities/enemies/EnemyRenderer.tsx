@@ -1,14 +1,14 @@
 // Enemy rendering component - renders any enemy type with entrance animation
 
 import { Group, Image, useImage } from '@shopify/react-native-skia';
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { Enemy } from './types';
 
 interface EnemyRendererProps {
   enemy: Enemy;
 }
 
-export default function EnemyRenderer({ enemy }: EnemyRendererProps) {
+function EnemyRenderer({ enemy }: EnemyRendererProps) {
   // Use drone.png for all enemies for now
   const enemyImage = useImage(require('@/assets/images/Drone.png'));
 
@@ -50,3 +50,6 @@ export default function EnemyRenderer({ enemy }: EnemyRendererProps) {
     </Group>
   );
 }
+
+// Memoize to prevent re-renders when enemy hasn't changed
+export default memo(EnemyRenderer);
