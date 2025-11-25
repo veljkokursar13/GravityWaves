@@ -1,12 +1,11 @@
 // Power-up indicator showing active boosts
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { useStore } from '@/store/store';
 
-interface PowerUpIndicatorProps {
-  doubleShot: boolean;
-}
-
-export default function PowerUpIndicator({ doubleShot }: PowerUpIndicatorProps) {
+export default function PowerUpIndicator() {
+  const doubleShot = useStore((state) => state.booster.doubleShot);
+  
   if (!doubleShot) return null;
 
   return (

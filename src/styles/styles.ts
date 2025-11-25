@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
 
 mainMenuTitle: {
   fontFamily: 'AstronValleyBold',
-  fontSize: 48,
+  fontSize: 40,
   color: '#fff',
   textAlign: 'center',
   marginBottom: 16, 

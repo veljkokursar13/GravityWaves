@@ -3,7 +3,6 @@ import { View, useWindowDimensions } from "react-native";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { GestureDetector } from "react-native-gesture-handler";
 import Ship from "@/entities/ship/Ship";
-import MuzzleFlash from "@/entities/ship/MuzzleFlash";
 import EnemyRenderer from "@/entities/enemies/EnemyRenderer";
 import Bullet from "@/entities/projectiles/Bullet";
 import ParticleExplosion from "@/entities/effects/ParticleExplosion";
@@ -27,6 +26,8 @@ import { useCameraShake } from "@/hooks/useCameraShake";
 import { useShipLives } from "@/entities/ship/useShipLives";
 import WaveAnouncer from "@/core/overlays/WaveAnouncer";
 
+const HUD_HEIGHT = 120; // Reserved space at bottom for UI elements
+
 export default function GameEngine() {
     const { width, height } = useWindowDimensions();
     const { appState, setAppState, addScore, addKills } = useStore();
@@ -46,14 +47,14 @@ export default function GameEngine() {
     const { enemies, spawnEnemy, killEnemy, damageEnemy } = useEnemies({
         bounds: { width, height },
         shipPosition: { x: ship.x, y: ship.y },
-        onEnemyPassed: (_enemyId) => {
-            addScore(-10);
+        onEnemyPassed: (enemyId) => {
+            addScore(-100);
             waveEnemyPassedRef.current();
         },
     });
 
     // Wave management
-    const { currentWave, currentWaveId, phase, onEnemyKilled, onEnemyPassed: waveEnemyPassed } = useWaveManager({
+    const { currentWave, currentWaveId, phase, onEnemyKilled, onEnemyPassed: waveEnemyPassed, resetWaves } = useWaveManager({
         onSpawnEnemy: spawnEnemy,
         bounds: { width, height },
     });
@@ -66,12 +67,6 @@ export default function GameEngine() {
     const velocityX = useRef<number>(0);
     const gameOverTriggered = useRef<boolean>(false);
     
-    // Muzzle flash - use ref for frame updates, state for periodic rendering
-    const muzzleFlashTimeRef = useRef<number>(999);
-    const [muzzleFlashTime, setMuzzleFlashTime] = useState<number>(999);
-    const lastShotPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-    const lastShotWasDoubleRef = useRef<boolean>(false);
-    
     // Particle explosions - use ref for frame updates, state for periodic rendering
     const explosionsRef = useRef<Array<{ id: string; x: number; y: number; time: number; color: string }>>([]);
     const [explosions, setExplosions] = useState<Array<{ id: string; x: number; y: number; time: number; color: string }>>([]);
@@ -83,7 +78,7 @@ export default function GameEngine() {
     const doubleShot = useShootBooster();
     
     // Ship lives system (3 lives with invincibility frames)
-    const { lives, isInvincible, takeDamage, resetLives, isDead } = useShipLives();
+    const { lives, isInvincible, takeDamage, isDead } = useShipLives();
     
     // Boss intro
     const [showBossIntro, setShowBossIntro] = useState(false);
@@ -100,15 +95,14 @@ export default function GameEngine() {
             });
             previousShipX.current = width / 2;
             velocityX.current = 0;
-            resetLives(); // Reset lives to 3
-            resetCombo(); // Reset combo
+            resetCombo(); // Reset combo (lives reset handled by store's resetGame)
+            resetWaves(); // Reset wave manager to wave 1
         }
-    }, [appState, width, height, resetLives, resetCombo]);
+    }, [appState, width, height, resetCombo, resetWaves]);
 
     // Periodic sync from refs to state for visual updates (10fps instead of 60fps)
     useEffect(() => {
         const interval = setInterval(() => {
-            setMuzzleFlashTime(muzzleFlashTimeRef.current);
             setExplosions([...explosionsRef.current]);
         }, 100); // 10 times per second
         
@@ -125,11 +119,11 @@ export default function GameEngine() {
             let nx = prev.x + dx * sensitivity;
             let ny = prev.y + dy * sensitivity;
             
-            // Clamp to bounds
+            // Clamp to bounds (reserve bottom HUD_HEIGHT for UI)
             const halfW = prev.width / 2;
             const halfH = prev.height / 2;
-            const minY = Math.max(halfH, height * 0.6 + halfH);
-            const maxY = height - halfH;
+            const minY = halfH;
+            const maxY = height - HUD_HEIGHT - halfH;
             
             nx = Math.max(halfW, Math.min(width - halfW, nx));
             ny = Math.max(minY, Math.min(maxY, ny));
@@ -190,7 +184,7 @@ export default function GameEngine() {
                 // Camera shake on kill (subtle AAA polish)
                 shake(enemy.kind === 'boss' ? 5 : 2);
                 
-                // Particle explosion with cap for performance (max 8 concurrent)
+                // Particle explosion with cap for performance (max 12 concurrent)
                 const explosionColor = enemy.kind === 'boss' ? '#ff4400' : '#00dcff';
                 const explosionId = `explosion-${enemy.id}-${Date.now()}`;
                 // Update ref directly for performance - no setState
@@ -201,8 +195,8 @@ export default function GameEngine() {
                     time: 0,
                     color: explosionColor
                 }];
-                // Cap at 8 explosions for smooth 60fps performance
-                explosionsRef.current = newExplosions.slice(-8);
+                // Cap at 12 explosions for smooth 60fps performance
+                explosionsRef.current = newExplosions.slice(-12);
             } else {
                 damageEnemy(enemy.id, bullet.damage);
             }
@@ -240,18 +234,8 @@ export default function GameEngine() {
 
         // Auto-fire while finger is down (with double shot booster)
         if (isTouchingRef.current) {
-            const bulletCountBefore = bullets.length;
             shoot(ship.x, ship.y, ship.height, doubleShot);
-            // Trigger muzzle flash if a bullet was actually fired
-            if (bullets.length > bulletCountBefore || muzzleFlashTimeRef.current < 0.03) {
-                muzzleFlashTimeRef.current = 0;
-                lastShotPositionRef.current = { x: ship.x, y: ship.y - ship.height / 2 };
-                lastShotWasDoubleRef.current = doubleShot;
-            }
         }
-        
-        // Update muzzle flash timer (ref only - no setState)
-        muzzleFlashTimeRef.current = muzzleFlashTimeRef.current + dt;
         
         // Update particle explosions with 600ms cleanup (ref only - no setState)
         explosionsRef.current = explosionsRef.current
@@ -259,7 +243,7 @@ export default function GameEngine() {
             .filter(exp => exp.time < 0.6); // Remove after 600ms (extended for debris)
         
         // Check for boss wave (wave 10) and trigger intro at wave start
-        if (currentWaveId === 10 && !bossIntroShownRef.current && phase === 'spawning') {
+        if (currentWaveId === 10 && !bossIntroShownRef.current && phase === 'between') {
             setShowBossIntro(true);
             bossIntroShownRef.current = true;
         }
@@ -277,44 +261,18 @@ export default function GameEngine() {
                 style={{ flex: 1, backgroundColor: 'transparent' }}
             >
                 <Group transform={[{ translateX: cameraOffset.x }, { translateY: cameraOffset.y }]}>
-                    {/* Render bullets first (behind everything) */}
+                    {/* Render order: Bullets → Enemies → Explosions → Ship (top) */}
+                    
+                    {/* Bullets (background layer) */}
                     {bullets.map(bullet => (
                         <Bullet key={bullet.id} bullet={bullet} />
                     ))}
-                    {/* Render enemies */}
+                    
+                    {/* Enemies */}
                     {enemies.map(enemy => (
                         <EnemyRenderer key={enemy.id} enemy={enemy} />
                     ))}
-                    {/* Render ship on top with invincibility flicker */}
-                    <Ship ship={ship} velocityX={velocityX.current} isInvincible={isInvincible} />
-                    {/* Muzzle flash effect (30ms) - single or double based on booster */}
-                    {muzzleFlashTime < 0.03 && (
-                        <>
-                            {lastShotWasDoubleRef.current ? (
-                                <>
-                                    {/* Left wing flash */}
-                                    <MuzzleFlash 
-                                        x={lastShotPositionRef.current.x - 20} 
-                                        y={lastShotPositionRef.current.y} 
-                                        time={muzzleFlashTime} 
-                                    />
-                                    {/* Right wing flash */}
-                                    <MuzzleFlash 
-                                        x={lastShotPositionRef.current.x + 20} 
-                                        y={lastShotPositionRef.current.y} 
-                                        time={muzzleFlashTime} 
-                                    />
-                                </>
-                            ) : (
-                                /* Center flash */
-                                <MuzzleFlash 
-                                    x={lastShotPositionRef.current.x} 
-                                    y={lastShotPositionRef.current.y} 
-                                    time={muzzleFlashTime} 
-                                />
-                            )}
-                        </>
-                    )}
+                    
                     {/* Particle explosions */}
                     {explosions.map(explosion => (
                         <ParticleExplosion
@@ -323,9 +281,11 @@ export default function GameEngine() {
                             y={explosion.y}
                             time={explosion.time}
                             color={explosion.color}
-                            particleCount={explosion.color === '#ff4400' ? 25 : 15}
                         />
                     ))}
+                    
+                    {/* Ship (always on top) */}
+                    <Ship ship={ship} velocityX={velocityX.current} isInvincible={isInvincible} />
                 </Group>
             </Canvas>
             
@@ -349,10 +309,10 @@ export default function GameEngine() {
             <Hud />
             
             {/* Life Bar */}
-            {!isGameOver && <LifeBar lives={lives} maxLives={3} isInvincible={isInvincible} />}
+            {!isGameOver && <LifeBar isInvincible={isInvincible} />}
             
             {/* Power-up indicator */}
-            {!isGameOver && <PowerUpIndicator doubleShot={doubleShot} />}
+            {!isGameOver && <PowerUpIndicator />}
             
             {/* Combo Counter */}
             {!isGameOver && <ComboCounter combo={combo} multiplier={multiplier} />}
@@ -365,7 +325,7 @@ export default function GameEngine() {
                 <BossIntro 
                     bossName="SUPREME DESTROYER"
                     onComplete={() => setShowBossIntro(false)} 
-            />
+                />
             )}
             
             {/* Game Over Overlay - highest priority */}

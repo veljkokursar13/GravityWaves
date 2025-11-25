@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Enemy, EnemyKind, MovementPattern } from './types';
 import { createEnemy } from './enemyFactory';
-import { updateEnemyPosition, isEnemyOffscreen } from './movement';
+import { updateEnemyPosition } from './movement';
 
 interface UseEnemiesProps {
   bounds: { width: number; height: number };
@@ -90,14 +90,20 @@ export function useEnemies({ bounds, shipPosition, onEnemyPassed }: UseEnemiesPr
             shipPositionRef.current?.x,
             shipPositionRef.current?.y
           );
-          if (isEnemyOffscreen(n, bounds)) {
+          
+          // Direct check: enemy passed bottom of screen (raw position only)
+          const enemyHeight = n.height ?? 50;
+          if (n.y > bounds.height + enemyHeight) {
             passedIds.push(n.id);
-            continue;
+            continue; // Remove enemy from array
           }
+          
           updated.push(n);
         }
         return updated;
       });
+      
+      // Trigger callbacks for passed enemies
       if (passedIds.length && onEnemyPassedRef.current) {
         passedIds.forEach(onEnemyPassedRef.current);
       }

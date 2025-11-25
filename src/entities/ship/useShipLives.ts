@@ -1,11 +1,12 @@
-// Ship lives management - 3 lives with damage system
-import { useState, useRef, useEffect, useCallback } from 'react';
+// Ship lives management - 3 lives with damage system using centralized store
+import { useRef, useEffect, useCallback, useState } from 'react';
+import { useStore } from '@/store/store';
 
-const MAX_LIVES = 3;
 const INVINCIBILITY_DURATION = 2; // seconds of invincibility after hit
 
 export const useShipLives = () => {
-    const [lives, setLives] = useState(MAX_LIVES);
+    const lives = useStore((state) => state.lives);
+    const loseLife = useStore((state) => state.loseLife);
     const [isInvincible, setIsInvincible] = useState(false);
     const invincibilityTimer = useRef<NodeJS.Timeout | null>(null);
     
@@ -13,7 +14,7 @@ export const useShipLives = () => {
     const takeDamage = useCallback(() => {
         if (isInvincible || lives <= 0) return false; // Already invincible or dead
         
-        setLives(prev => Math.max(0, prev - 1));
+        loseLife();
         setIsInvincible(true);
         
         // Clear any existing timer
@@ -28,17 +29,7 @@ export const useShipLives = () => {
         }, INVINCIBILITY_DURATION * 1000);
         
         return true; // Damage was applied
-    }, [isInvincible, lives]);
-    
-    // Reset lives (for new game)
-    const resetLives = useCallback(() => {
-        setLives(MAX_LIVES);
-        setIsInvincible(false);
-        if (invincibilityTimer.current) {
-            clearTimeout(invincibilityTimer.current);
-            invincibilityTimer.current = null;
-        }
-    }, []);
+    }, [isInvincible, lives, loseLife]);
     
     // Cleanup on unmount
     useEffect(() => {
@@ -52,8 +43,7 @@ export const useShipLives = () => {
     return { 
         lives, 
         isInvincible, 
-        takeDamage, 
-        resetLives,
+        takeDamage,
         isDead: lives <= 0 
     };
 }

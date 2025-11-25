@@ -5,7 +5,7 @@ import Animated, {
   withSpring 
 } from 'react-native-reanimated';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
-import { useAudioStore } from '@/store/audio';
+import { useStore } from '@/store/store';
 
 // Neon thin-line volume icon component
 function VolumeIcon({ muted }: { muted: boolean }) {
@@ -65,8 +65,12 @@ function VolumeIcon({ muted }: { muted: boolean }) {
 }
 
 export function AudioControls() {
-  const { muted, setMuted } = useAudioStore();
+  const soundOn = useStore((state) => state.soundOn);
+  const toggleSound = useStore((state) => state.toggleSound);
   const scale = useSharedValue(1);
+  
+  // Convert soundOn (true = unmuted) to muted (true = muted)
+  const muted = !soundOn;
   
   const handlePressIn = () => {
     scale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
@@ -84,7 +88,7 @@ export function AudioControls() {
     <View style={styles.audioControls}>
       <Animated.View style={animatedStyle}>
         <Pressable 
-          onPress={() => setMuted(!muted)}
+          onPress={toggleSound}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           style={styles.button}

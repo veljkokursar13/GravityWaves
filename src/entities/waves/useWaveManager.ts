@@ -24,7 +24,21 @@ export function useWaveManager({ onSpawnEnemy, bounds }: UseWaveManagerProps) {
   const spawnIndexRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onSpawnRef = useRef(onSpawnEnemy);
+  const enemiesRemainingRef = useRef(0); // Track remaining enemies in ref for immediate access
+  
   useEffect(() => { onSpawnRef.current = onSpawnEnemy; }, [onSpawnEnemy]);
+  useEffect(() => { enemiesRemainingRef.current = enemiesRemaining; }, [enemiesRemaining]);
+  
+  // Reset wave manager function
+  const resetWaves = () => {
+    setCurrentWaveIndex(0);
+    setEnemiesRemaining(0);
+    setPhase('between');
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
 
   const currentWave = WAVES[currentWaveIndex] ?? WAVES[WAVES.length - 1];
 
@@ -79,13 +93,23 @@ export function useWaveManager({ onSpawnEnemy, bounds }: UseWaveManagerProps) {
 
   function decrementAndAdvance() {
     setEnemiesRemaining((prev) => {
-      const next = prev - 1;
-      if (next <= 0) {
+      const next = Math.max(0, prev - 1);
+      
+      // Advance wave when all enemies are gone (killed or passed)
+      if (next === 0 && prev > 0) {
+        // Set phase to between-waves
         setPhase('between');
+        
+        // Advance to next wave after brief delay
         setTimeout(() => {
-          setCurrentWaveIndex((i) => i + 1); // next wave
+          setCurrentWaveIndex((i) => {
+            const nextIndex = i + 1;
+            // Loop back to last wave if we've gone past all waves
+            return nextIndex < WAVES.length ? nextIndex : WAVES.length - 1;
+          });
         }, 2000);
       }
+      
       return next;
     });
   }
@@ -95,7 +119,8 @@ export function useWaveManager({ onSpawnEnemy, bounds }: UseWaveManagerProps) {
   }
 
   function onEnemyPassed() {
-    // Enemy passed off-screen; decrement remaining and advance if none left
+    // Enemy passed off-screen without being killed
+    // Decrement remaining count and advance wave if this was the last enemy
     decrementAndAdvance();
   }
 
@@ -106,6 +131,7 @@ export function useWaveManager({ onSpawnEnemy, bounds }: UseWaveManagerProps) {
     phase,
     onEnemyKilled,
     onEnemyPassed,
+    resetWaves,
   };
 }
 

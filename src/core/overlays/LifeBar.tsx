@@ -8,12 +8,9 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { useEffect } from 'react';
+import { useStore } from '@/store/store';
 
-interface LifeBarProps {
-  lives: number;
-  maxLives: number;
-  isInvincible: boolean;
-}
+const MAX_LIVES = 3;
 
 const HeartIcon = ({ filled, isInvincible }: { filled: boolean; isInvincible: boolean }) => {
   const scale = useSharedValue(1);
@@ -58,11 +55,13 @@ const HeartIcon = ({ filled, isInvincible }: { filled: boolean; isInvincible: bo
   );
 };
 
-export default function LifeBar({ lives, maxLives, isInvincible }: LifeBarProps) {
+export default function LifeBar({ isInvincible }: { isInvincible: boolean }) {
+  const lives = useStore((state) => state.lives);
+  
   return (
     <View pointerEvents="none" style={styles.container}>
       <View style={styles.heartsRow}>
-        {Array.from({ length: maxLives }).map((_, i) => (
+        {Array.from({ length: MAX_LIVES }).map((_, i) => (
           <HeartIcon 
             key={i} 
             filled={i < lives} 

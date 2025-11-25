@@ -1,14 +1,24 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useStore } from '@/store/store';
+import { router } from 'expo-router';
 import { overlayStyles } from '@/styles/styles';
 import PauseButton from '@/ui/PauseButton';
+import { ResetGameButton } from '@/ui/ResetGameButton';
 
 
 export default function PauseOverlay() {
   const appState = useStore((state) => state.appState);
   const setAppState = useStore((state) => state.setAppState);
+  const resetGame = useStore((state) => state.resetGame);
+  
   if (appState !== 'paused') return null;
+  
+  const handleResetGame = () => {
+    // Reset all game state (score, kills, wave, lives, boosters)
+    resetGame();
+    router.replace('/game');
+  };
   let BlurComponent: any = View;
   let hasBlur = false;
   try {
@@ -29,6 +39,7 @@ export default function PauseOverlay() {
         <Text style={PauseOverlayLocalStyles.title}>Paused</Text>
         <View style={PauseOverlayLocalStyles.buttonsResume}> 
           <PauseButton isPaused={true} onPress={() => setAppState('game')} />
+          <ResetGameButton onPress={handleResetGame} />
         </View>
       </View>
     </View>

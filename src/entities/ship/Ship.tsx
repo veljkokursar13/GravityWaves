@@ -9,7 +9,7 @@ interface ShipProps {
   isInvincible?: boolean;
 }
 
-const MAX_SKEW = 0.32; // perfect subtle lean
+const MAX_SKEW = 0.08; // perfect subtle lean
 
 export default function Ship({ ship, velocityX, isInvincible = false }: Readonly<ShipProps>) {
   const shipImage = useImage(require('../../assets/images/ship.png'));

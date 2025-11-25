@@ -1,19 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useStore } from "@/store/store";
 
 /**
  * Hook that activates double shot when score exceeds 600
- * Returns boolean indicating if double shot is active
+ * Updates the store's booster.doubleShot state
  */
 export function useShootBooster() {
     const score = useStore((state) => state.score);
-    const [shootBooster, setShootBooster] = useState(false);
+    const doubleShot = useStore((state) => state.booster.doubleShot);
     
     useEffect(() => {
-        if (score > 600) {
-            setShootBooster(true);
+        if (score > 600 && !doubleShot) {
+            // Activate double shot booster in store
+            useStore.setState((state) => ({
+                booster: { ...state.booster, doubleShot: true }
+            }));
         }
-    }, [score]);
+    }, [score, doubleShot]);
     
-    return shootBooster;
+    return doubleShot;
 }

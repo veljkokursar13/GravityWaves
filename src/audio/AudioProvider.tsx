@@ -1,6 +1,7 @@
 import { createContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AudioManager, Volumes } from './AudioManager';
 import { ExpoAudioBackend, configureAudioMode } from './ExpoAudioBackend';
+import { useStore } from '@/store/store';
 import { useAudioStore } from '@/store/audio';
 
 export const AudioContext = createContext<{
@@ -18,7 +19,16 @@ export function AudioProvider(props: { children: React.ReactNode; preload?: Prel
   const backend = useMemo(() => new ExpoAudioBackend(), []);
   const managerRef = useRef(new AudioManager(backend));
   const [state, setState] = useState(managerRef.current.getState());
-  const { muted: prefMuted, musicVolume, sfxVolume, setMuted: setPrefMuted } = useAudioStore();
+  
+  // Use main store for master mute toggle (soundOn)
+  const soundOn = useStore((state) => state.soundOn);
+  const toggleSound = useStore((state) => state.toggleSound);
+  
+  // Use audio store for detailed volume controls
+  const { musicVolume, sfxVolume } = useAudioStore();
+  
+  // Convert soundOn (true = unmuted) to muted (true = muted)
+  const muted = !soundOn;
 
   // Ensure registry is populated before children effects run
   if (props.preload?.length) {
@@ -33,11 +43,11 @@ export function AudioProvider(props: { children: React.ReactNode; preload?: Prel
     return () => { managerRef.current.dispose(); };
   }, []);
 
-  // Sync store -> audio manager
+  // Sync main store soundOn -> audio manager muted
   useEffect(() => {
-    managerRef.current.setMuted(prefMuted);
+    managerRef.current.setMuted(muted);
     setState(managerRef.current.getState());
-  }, [prefMuted]);
+  }, [muted]);
 
   useEffect(() => {
     managerRef.current.setVolumes({ music: musicVolume, sfx: sfxVolume });
@@ -52,9 +62,15 @@ export function AudioProvider(props: { children: React.ReactNode; preload?: Prel
       await managerRef.current.setVolumes(v);
       setState(managerRef.current.getState());
     },
-    setMuted: (m: boolean) => { setPrefMuted(m); },
+    setMuted: (m: boolean) => { 
+      // m = true means mute, so soundOn should be false
+      // Call toggleSound only if current state doesn't match desired state
+      if (soundOn === m) {
+        toggleSound();
+      }
+    },
     state,
-  }), [state, setPrefMuted]);
+  }), [state, soundOn, toggleSound]);
 
   return (
     <AudioContext.Provider value={api}>

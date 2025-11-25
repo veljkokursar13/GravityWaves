@@ -9,6 +9,8 @@ interface NebulaCloud {
   id: string;
   x: number;
   y: number;
+  baseX: number; // Original X position for drift calculation
+  t: number; // Time accumulator for drift animation
   radius: number;
   color: string;
   opacity: number;
@@ -34,10 +36,13 @@ export default function Nebula() {
 
     for (let i = 0; i < 8; i++) {
       const baseOpacity = 0.2 + Math.random() * 0.1; // More subtle: 0.15-0.25 range
+      const startX = Math.random() * width;
       newClouds.push({
         id: `cloud-${i}`,
-        x: Math.random() * width,
+        x: startX,
         y: Math.random() * height,
+        baseX: startX, // Store original X for drift
+        t: Math.random() * Math.PI * 2, // Random starting time
         radius: 80 + Math.random() * 120,
         color: colors[Math.floor(Math.random() * colors.length)],
         opacity: baseOpacity,
@@ -57,7 +62,7 @@ export default function Nebula() {
     setClouds(initialClouds);
   }, [initialClouds]);
 
-  // Optimized parallax scrolling and pulsing animation using useDeltaTime
+  // Optimized parallax scrolling, pulsing, and drift animation using useDeltaTime
   useEffect(() => {
     if (!delta) return; // Skip first frame
     
@@ -69,6 +74,13 @@ export default function Nebula() {
           newY = -cloud.radius;
         }
         
+        // Update time for drift animation
+        const newT = cloud.t + delta * 0.1; // Slow time progression
+        
+        // Calculate subtle horizontal drift
+        const driftX = Math.sin(newT) * 20; // ±20px drift range
+        const newX = cloud.baseX + driftX;
+        
         // Update pulse phase for breathing animation
         const newPhase = cloud.pulsePhase + cloud.pulseSpeed * delta;
         
@@ -77,8 +89,10 @@ export default function Nebula() {
         const newOpacity = cloud.baseOpacity + (cloud.baseOpacity * pulseAmount);
         
         return { 
-          ...cloud, 
+          ...cloud,
+          x: newX,
           y: newY,
+          t: newT,
           pulsePhase: newPhase,
           opacity: newOpacity,
         };

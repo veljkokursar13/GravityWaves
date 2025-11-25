@@ -84,8 +84,3 @@ export function updateEnemyPosition(
   return e;
 };
 
-export function isEnemyOffscreen(enemy: Enemy, bounds: Bounds): boolean {
-  const belowBottom = enemy.y - enemy.height / 2 > bounds.height;
-  const farOutsideX = enemy.x < -100 || enemy.x > bounds.width + 100;
-  return belowBottom || farOutsideX;
-}
