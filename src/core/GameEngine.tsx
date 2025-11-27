@@ -185,8 +185,6 @@ export default function GameEngine() {
         // Enemies update and collisions
         const em = enemyManagerRef.current;
         if (em) {
-            // Debug
-            // console.log('[GameEngine] enemies in loop', em.enemies.length);
             // Move enemies
             em.update(dt, ship.x, ship.y);
 

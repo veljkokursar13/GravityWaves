@@ -41,13 +41,18 @@ export class EnemyManager {
     const size = SIZES[kind];
     const hp = Math.ceil(hpBase[kind] * hpMultiplier);
 
-    // Spawn X: center for formations, random lanes for others
-    const x = initialPosition?.x ?? (
-      pattern === 'vFormation'
-        ? this.bounds.width * 0.5
-        : (this.bounds.width * 0.1 + Math.random() * this.bounds.width * 0.8)
-    );
-    const y = initialPosition?.y ?? -80;
+    let x: number;
+    let y: number;
+    if (pattern === 'vFormation') {
+      const k = initialPosition?.indexInFormation ?? 0; // centered around 0
+      const spread = size * 1.1;
+      x = this.bounds.width * 0.5 + k * spread;
+      y = -80 - Math.abs(k) * 20; // outer ships start slightly higher
+    } else {
+      // Random lanes for other patterns
+      x = initialPosition?.x ?? (this.bounds.width * 0.1 + Math.random() * this.bounds.width * 0.8);
+      y = initialPosition?.y ?? -80;
+    }
 
     this.enemies.push({
       id,

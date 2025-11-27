@@ -30,9 +30,6 @@ export class WaveManager {
     const wave = Array.isArray(this.waves) ? this.waves[this.current] : undefined;
     if (!wave || !Array.isArray(wave.enemies)) return;
 
-    // Debug
-    console.log('[WaveManager] startWave', { current: this.current, wave });
-
     this.phase = "between";
     this.remaining = wave.enemies.reduce((a: number, e: { count: number }) => a + (e?.count ?? 0), 0);
 
@@ -40,7 +37,6 @@ export class WaveManager {
       this.phase = "inWave";
 
       if (!Array.isArray(wave.enemies)) return;
-      console.log('[WaveManager] spawning groups', wave.enemies.length);
       wave.enemies.forEach((group: { kind: string; pattern: string; count: number } | undefined) => {
         if (!group || typeof group.count !== 'number') return;
         for (let i = 0; i < group.count; i++) {
