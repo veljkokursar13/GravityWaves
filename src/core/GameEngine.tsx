@@ -3,30 +3,31 @@ import { View, useWindowDimensions } from "react-native";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { GestureDetector } from "react-native-gesture-handler";
 import Ship from "@/entities/ship/Ship";
-import EnemyRenderer from "@/entities/enemies/EnemyRenderer";
 import Bullet from "@/entities/projectiles/Bullet";
-import ParticleExplosion from "@/entities/effects/ParticleExplosion";
 import { initialShip, type Ship as ShipType } from "@/entities/ship/types";
-import { useEnemies } from "@/entities/enemies/useEnemies";
-import { useWaveManager } from "@/entities/waves/useWaveManager";
 import { useBulletsOptimized } from "@/entities/projectiles/useBulletsOptimized";
 import { useGameLoop } from "@/hooks/useGameLoop";
 import { useCombo } from "@/hooks/useCombo";
 import { useShootBooster } from "@/hooks/useShootBooster";
-import { detectShipEnemyCollisions, detectBulletEnemyCollisions } from "@/core/systems/collision";
 import { useStore } from "@/store/store";
 import GameOverScreen from "@/core/overlays/GameOverScreen";
 import Hud from "@/core/overlays/Hud";
 import ComboCounter from "@/core/overlays/ComboCounter";
-import BossIntro from "@/core/overlays/BossIntro";
 import PowerUpIndicator from "@/core/overlays/PowerUpIndicator";
+import JetFlames from "@/entities/ship/JetFlames";
 import LifeBar from "@/core/overlays/LifeBar";
 import { useShipFollow } from "@/hooks/useShipFollow";
 import { useCameraShake } from "@/hooks/useCameraShake";
 import { useShipLives } from "@/entities/ship/useShipLives";
-import WaveAnouncer from "@/core/overlays/WaveAnouncer";
+import { EnemyManager } from "@/entities/enemies/enemyManager";
+import { WaveManager } from "@/entities/enemies/waveManager";
+import { WAVES } from "@/entities/enemies/waves";
+import EnemySprite from "@/entities/enemies/EnemySprite";
+import { detectBulletEnemyCollisions, detectShipEnemyCollisions } from "@/core/systems/collision";
+import type { Enemy } from "@/entities/enemies/types";
 
-const HUD_HEIGHT = 120; // Reserved space at bottom for UI elements
+const BOTTOM_UI_HEIGHT = 80; // Reserved space at bottom for UI elements
+const START_OFFSET_FROM_BOTTOM = 50; // Starting distance from bottom UI
 
 export default function GameEngine() {
     const { width, height } = useWindowDimensions();
@@ -34,45 +35,25 @@ export default function GameEngine() {
     const paused = appState === 'paused';
     const isGameOver = appState === 'gameover';
     
-    const [ship, setShip] = useState<ShipType>({ 
-        ...initialShip, 
-        x: width / 2, 
-        y: height - 50 
+    const [ship, setShip] = useState<ShipType>({
+        ...initialShip,
+        x: width / 2,
+        y: height - BOTTOM_UI_HEIGHT - START_OFFSET_FROM_BOTTOM
     });
-
-    // Enemy management
-    // Bridge wave progression handler into the enemy hook without breaking hook order.
-    const waveEnemyPassedRef = useRef<() => void>(() => {});
-
-    const { enemies, spawnEnemy, killEnemy, damageEnemy } = useEnemies({
-        bounds: { width, height },
-        shipPosition: { x: ship.x, y: ship.y },
-        onEnemyPassed: (enemyId) => {
-            addScore(-100);
-            waveEnemyPassedRef.current();
-        },
-    });
-
-    // Wave management
-    const { currentWave, currentWaveId, phase, onEnemyKilled, onEnemyPassed: waveEnemyPassed, resetWaves } = useWaveManager({
-        onSpawnEnemy: spawnEnemy,
-        bounds: { width, height },
-    });
-    waveEnemyPassedRef.current = waveEnemyPassed;
 
     const { bullets, updateBulletsRef, shoot, removeBullet } = useBulletsOptimized();
     
     // Refs for game state
     const previousShipX = useRef<number>(width / 2);
+    const previousShipY = useRef<number>(height - BOTTOM_UI_HEIGHT - START_OFFSET_FROM_BOTTOM);
     const velocityX = useRef<number>(0);
+    const velocityY = useRef<number>(0);
     const gameOverTriggered = useRef<boolean>(false);
-    
-    // Particle explosions - use ref for frame updates, state for periodic rendering
-    const explosionsRef = useRef<Array<{ id: string; x: number; y: number; time: number; color: string }>>([]);
-    const [explosions, setExplosions] = useState<Array<{ id: string; x: number; y: number; time: number; color: string }>>([]);
+    const enemyManagerRef = useRef<EnemyManager | null>(null);
+    const waveManagerRef = useRef<WaveManager | null>(null);
     
     // Combo system
-    const { combo, multiplier, addKill: addComboKill, reset: resetCombo } = useCombo();
+    const { combo, multiplier, reset: resetCombo } = useCombo();
     
     // Double shot booster (activated at score > 300)
     const doubleShot = useShootBooster();
@@ -88,26 +69,61 @@ export default function GameEngine() {
     useEffect(() => {
         if (appState === 'game' && gameOverTriggered.current) {
             gameOverTriggered.current = false;
-            setShip({ 
-                ...initialShip, 
-                x: width / 2, 
-                y: height - 50 
+            setShip({
+                ...initialShip,
+                x: width / 2,
+                y: height - BOTTOM_UI_HEIGHT - START_OFFSET_FROM_BOTTOM
             });
             previousShipX.current = width / 2;
             velocityX.current = 0;
             resetCombo(); // Reset combo (lives reset handled by store's resetGame)
-            resetWaves(); // Reset wave manager to wave 1
         }
-    }, [appState, width, height, resetCombo, resetWaves]);
+    }, [appState, width, height, resetCombo]);
 
-    // Periodic sync from refs to state for visual updates (10fps instead of 60fps)
+    // Ensure store appState is 'game' when engine mounts so waves can start
     useEffect(() => {
-        const interval = setInterval(() => {
-            setExplosions([...explosionsRef.current]);
-        }, 100); // 10 times per second
-        
-        return () => clearInterval(interval);
+        if (appState !== 'game') {
+            setAppState('game');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Initialize enemy and wave managers and start waves when in game
+    useEffect(() => {
+        if (!enemyManagerRef.current) {
+            enemyManagerRef.current = new EnemyManager(
+                { width, height },
+                (enemy: Enemy, cause: "killed" | "passed") => {
+                    if (cause === "killed") {
+                        const scoreByKind: Record<string, number> = { drone: 10, rogue: 15, heavy: 25, kamikaze: 12, boss: 200 };
+                        addScore(scoreByKind[enemy.kind] ?? 10);
+                        addKills(1);
+                    } else if (cause === 'passed') {
+                        addScore(-100);
+                    }
+                    waveManagerRef.current?.enemyRemoved();
+                }
+            );
+        }
+        if (!waveManagerRef.current) {
+            waveManagerRef.current = new WaveManager(WAVES, (cfg: any) => enemyManagerRef.current?.spawn(cfg));
+        }
+        if (appState === "game") {
+            if (waveManagerRef.current.phase !== 'inWave' && waveManagerRef.current.remaining === 0) {
+                waveManagerRef.current.startWave();
+            }
+        }
+    }, [width, height, appState, addScore, addKills]);
+
+    // Unconditional wave start on mount (ensures waves begin even if appState timing differs)
+    useEffect(() => {
+        if (waveManagerRef.current && waveManagerRef.current.phase !== 'inWave' && waveManagerRef.current.remaining === 0) {
+            waveManagerRef.current.startWave();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Periodic sync placeholder (reserved for future UI updates)
 
     // Touch state for auto-fire
     const isTouchingRef = useRef<boolean>(false);
@@ -119,11 +135,11 @@ export default function GameEngine() {
             let nx = prev.x + dx * sensitivity;
             let ny = prev.y + dy * sensitivity;
             
-            // Clamp to bounds (reserve bottom HUD_HEIGHT for UI)
+            // Clamp to bounds (reserve bottom UI height and lock top at half screen)
             const halfW = prev.width / 2;
             const halfH = prev.height / 2;
-            const minY = halfH;
-            const maxY = height - HUD_HEIGHT - halfH;
+            const minY = Math.max(height / 2, halfH);
+            const maxY = height - BOTTOM_UI_HEIGHT - halfH;
             
             nx = Math.max(halfW, Math.min(width - halfW, nx));
             ny = Math.max(minY, Math.min(maxY, ny));
@@ -148,81 +164,7 @@ export default function GameEngine() {
     // Camera shake for impacts
     const { offset: cameraOffset, shake } = useCameraShake();
 
-    // Helper: Process bullet-enemy collisions
-    const processBulletCollisions = () => {
-        const bulletCollisionsAll = detectBulletEnemyCollisions(bullets, enemies);
-        const bulletCollisions = bulletCollisionsAll.filter(({ enemy }) => {
-            const enemyTop = enemy.y - enemy.height / 2;
-            const enemyBottom = enemy.y + enemy.height / 2;
-            return enemyBottom > 0 && enemyTop < height;
-        });
-        
-        if (bulletCollisions.length === 0) return;
-
-        const hitBulletIds = new Set(bulletCollisions.map(c => c.bullet.id));
-        const processedEnemies = new Set<string>();
-        
-        for (const id of hitBulletIds) {
-            removeBullet(id);
-        }
-        
-        for (const { bullet, enemy } of bulletCollisions) {
-            if (processedEnemies.has(enemy.id)) continue;
-            
-            processedEnemies.add(enemy.id);
-            
-            if (enemy.hp <= bullet.damage) {
-                killEnemy(enemy.id);
-                onEnemyKilled();
-                
-                // Combo system
-                addComboKill();
-                const comboScore = 10 * (enemy.kind === 'boss' ? 10 : 1) * multiplier;
-                addScore(Math.floor(comboScore));
-                addKills(1);
-                
-                // Camera shake on kill (subtle AAA polish)
-                shake(enemy.kind === 'boss' ? 5 : 2);
-                
-                // Particle explosion with cap for performance (max 12 concurrent)
-                const explosionColor = enemy.kind === 'boss' ? '#ff4400' : '#00dcff';
-                const explosionId = `explosion-${enemy.id}-${Date.now()}`;
-                // Update ref directly for performance - no setState
-                const newExplosions = [...explosionsRef.current, {
-                    id: explosionId,
-                    x: enemy.x,
-                    y: enemy.y,
-                    time: 0,
-                    color: explosionColor
-                }];
-                // Cap at 12 explosions for smooth 60fps performance
-                explosionsRef.current = newExplosions.slice(-12);
-            } else {
-                damageEnemy(enemy.id, bullet.damage);
-            }
-        }
-    };
-
-    // Helper: Check for collisions and lives
-    const checkGameOver = () => {
-        // Skip collision check if invincible
-        if (isInvincible) return;
-        
-        const shipCollisions = detectShipEnemyCollisions(ship, enemies);
-        if (shipCollisions.length > 0) {
-            const damaged = takeDamage();
-            if (damaged) {
-                shake(3); // Camera shake on hit
-                resetCombo(); // Reset combo on damage
-                
-                // Check if dead after taking damage
-                if (isDead && !gameOverTriggered.current) {
-                    gameOverTriggered.current = true;
-                    setAppState('gameover');
-                }
-            }
-        }
-    };
+    // No enemy or wave collisions handled in this module
 
     // Frame update via useGameLoop
     useGameLoop((delta) => {
@@ -230,32 +172,49 @@ export default function GameEngine() {
 
         // Calculate velocity for banking effect
         velocityX.current = (ship.x - previousShipX.current) / Math.max(dt, 1e-6);
+        velocityY.current = (ship.y - previousShipY.current) / Math.max(dt, 1e-6);
         previousShipX.current = ship.x;
+        previousShipY.current = ship.y;
 
         // Auto-fire while finger is down (with double shot booster)
         if (isTouchingRef.current) {
             shoot(ship.x, ship.y, ship.height, doubleShot);
         }
         
-        // Update particle explosions with 600ms cleanup (ref only - no setState)
-        explosionsRef.current = explosionsRef.current
-            .map(exp => ({ ...exp, time: exp.time + dt }))
-            .filter(exp => exp.time < 0.6); // Remove after 600ms (extended for debris)
-        
-        // Check for boss wave (wave 10) and trigger intro at wave start
-        if (currentWaveId === 10 && !bossIntroShownRef.current && phase === 'between') {
-            setShowBossIntro(true);
-            bossIntroShownRef.current = true;
-        }
-
         updateBulletsRef(delta); // Updates ref only, not state
-        processBulletCollisions();
-        checkGameOver();
+        // Enemies update and collisions
+        const em = enemyManagerRef.current;
+        if (em) {
+            // Debug
+            // console.log('[GameEngine] enemies in loop', em.enemies.length);
+            // Move enemies
+            em.update(dt, ship.x, ship.y);
+
+            // Bullet → enemy collisions
+            const bulletHits = detectBulletEnemyCollisions(bullets, em.enemies);
+            const bulletsToRemove = new Set<string>();
+            for (const { bullet, enemy } of bulletHits) {
+                if (bulletsToRemove.has(bullet.id)) continue;
+                em.damage(enemy.id, bullet.damage);
+                bulletsToRemove.add(bullet.id);
+            }
+            bulletsToRemove.forEach((id) => removeBullet(id));
+
+            // Ship → enemy collisions (respect invincibility)
+            if (!isInvincible) {
+                const shipHits = detectShipEnemyCollisions(ship as any, em.enemies);
+                if (shipHits.length > 0) {
+                    if (takeDamage()) {
+                        em.removeEnemy(shipHits[0].enemy.id, "killed");
+                    }
+                }
+            }
+        }
     }, paused || isGameOver);
 
     // Render
     return(
-        <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <View style={{ flex: 1, backgroundColor: 'transparent', zIndex: 10 }}>
             <Canvas
                 pointerEvents="none"
                 style={{ flex: 1, backgroundColor: 'transparent' }}
@@ -269,28 +228,34 @@ export default function GameEngine() {
                     ))}
                     
                     {/* Enemies */}
-                    {enemies.map(enemy => (
-                        <EnemyRenderer key={enemy.id} enemy={enemy} />
+                    {enemyManagerRef.current?.enemies.map(e => (
+                        <EnemySprite key={e.id} enemy={e} />
                     ))}
-                    
-                    {/* Particle explosions */}
-                    {explosions.map(explosion => (
-                        <ParticleExplosion
-                            key={explosion.id}
-                            x={explosion.x}
-                            y={explosion.y}
-                            time={explosion.time}
-                            color={explosion.color}
-                        />
-                    ))}
-                    
+
+                    {/* Jet flames behind ship when moving */}
+                    {(() => {
+                        const speed = Math.hypot(velocityX.current, velocityY.current);
+                        // Threshold and scaling tuned for natural feel
+                        const intensity = Math.max(0, Math.min(1, (speed - 100) / 800));
+                        if (intensity <= 0) return null;
+                        return (
+                            <JetFlames
+                                x={ship.x}
+                                y={ship.y}
+                                shipWidth={ship.width}
+                                shipHeight={ship.height}
+                                intensity={intensity}
+                            />
+                        );
+                    })()}
+
                     {/* Ship (always on top) */}
                     <Ship ship={ship} velocityX={velocityX.current} isInvincible={isInvincible} />
                 </Group>
             </Canvas>
             
             {/* Gesture detector for ship control - native performance */}
-            {!isGameOver && phase !== 'between' && (
+            {!isGameOver && (
                 <GestureDetector gesture={panGesture}>
                     <View
                         style={{ 
@@ -306,10 +271,8 @@ export default function GameEngine() {
             )}
             
             {/* HUD Overlay (score only) - higher zIndex to be on top */}
+            <LifeBar />
             <Hud />
-            
-            {/* Life Bar */}
-            {!isGameOver && <LifeBar isInvincible={isInvincible} />}
             
             {/* Power-up indicator */}
             {!isGameOver && <PowerUpIndicator />}
@@ -317,17 +280,8 @@ export default function GameEngine() {
             {/* Combo Counter */}
             {!isGameOver && <ComboCounter combo={combo} multiplier={multiplier} />}
             
-            {/* Wave Announcer between waves */}
-            {phase === 'between' && !showBossIntro && <WaveAnouncer waveId={currentWaveId} />}
-            
-            {/* Boss Intro */}
-            {showBossIntro && (
-                <BossIntro 
-                    bossName="SUPREME DESTROYER"
-                    onComplete={() => setShowBossIntro(false)} 
-                />
-            )}
-            
+            {/* No wave announcer or boss intro here */}
+
             {/* Game Over Overlay - highest priority */}
             {isGameOver && <GameOverScreen />}
         </View>

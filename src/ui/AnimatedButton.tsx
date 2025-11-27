@@ -48,13 +48,6 @@ export const AnimatedButton = ({ children, onPress }: { children: React.ReactNod
 
   return (
     <Animated.View style={[styles.container, animatedStyle]}>
-      <Animated.View style={borderAnimatedStyle}>
-        <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.topEdge} />
-        <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 0 }} style={styles.bottomEdge} />
-        <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }} style={styles.leftEdge} />
-        <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.rightEdge} />
-      </Animated.View>
-
       <Pressable 
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -63,6 +56,14 @@ export const AnimatedButton = ({ children, onPress }: { children: React.ReactNod
       >
         <RNText style={styles.text}>{children}</RNText>
       </Pressable>
+
+      {/* Absolute overlay so all edges are visible above content */}
+      <Animated.View pointerEvents="none" style={[styles.borderWrapper, borderAnimatedStyle]}>
+        <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.topEdge} />
+        <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 0 }} style={styles.bottomEdge} />
+        <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }} style={styles.leftEdge} />
+        <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.rightEdge} />
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -75,6 +76,13 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     overflow: 'hidden',
     marginVertical: 12, // larger gap between elements
+  },
+  borderWrapper: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   // edges create the gradient border while center stays transparent
   topEdge: {

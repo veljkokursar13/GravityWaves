@@ -3,7 +3,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../themeProvider';
 import Nebula from './Nebula';
 import { Stars } from './Stars';
-import Particles from './Particles';
 
 export default function SpaceCreator() {
   const { colors } = useTheme();
@@ -21,7 +20,6 @@ export default function SpaceCreator() {
       {/* Layered space elements - back to front */}
       <Nebula />
       <Stars />
-      <Particles />
     </View>
   );
 }

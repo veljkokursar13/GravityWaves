@@ -46,32 +46,12 @@ const HeartIcon = ({ filled, isInvincible }: { filled: boolean; isInvincible: bo
   }));
 
   return (
-    <Animated.View style={[styles.heart, animatedStyle]}>
-      <View style={[
-        styles.heartFill,
-        { backgroundColor: filled ? '#ff0055' : 'rgba(255, 0, 85, 0.2)' }
-      ]} />
-    </Animated.View>
+    <Animated.Image
+      source={require('../../assets/images/ship.png')}
+      style={[styles.heart, animatedStyle]}
+    />
   );
 };
-
-export default function LifeBar({ isInvincible }: { isInvincible: boolean }) {
-  const lives = useStore((state) => state.lives);
-  
-  return (
-    <View pointerEvents="none" style={styles.container}>
-      <View style={styles.heartsRow}>
-        {Array.from({ length: MAX_LIVES }).map((_, i) => (
-          <HeartIcon 
-            key={i} 
-            filled={i < lives} 
-            isInvincible={isInvincible && i < lives}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -89,6 +69,8 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
+    overlayColor: 'rgba(0, 0, 0, 0.5)',
+    
   },
   heartFill: {
     width: 20,
@@ -102,3 +84,23 @@ const styles = StyleSheet.create({
   },
 });
 
+const LifeBar = () => {
+  const lives = useStore((s) => s.lives);
+  const isInvincible = useStore((s) => s.booster.shield);
+
+  return (
+    <View style={styles.container}>
+      <View style={[styles.heartsRow, { opacity: 0.7 }]}>
+        {Array.from({ length: MAX_LIVES }).map((_, index) => (
+          <HeartIcon
+            key={index}
+            filled={index < lives}
+            isInvincible={isInvincible}
+          />
+        ))}
+      </View>
+    </View>
+  );
+};
+
+export default LifeBar;

@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { EnemyManager } from '@/entities/enemies/enemyManager';
 type AppState = 'menu' | 'game' | 'paused' | 'gameover';
 
 type Store = {
@@ -14,8 +14,6 @@ type Store = {
     addKills: (delta: number) => void;
     appState: AppState;
     setAppState: (state: AppState) => void;
-    currentWave: number;
-    setCurrentWave: (wave: number) => void;
     lives: number;
     loseLife: () => void;
     soundOn: boolean;
@@ -32,6 +30,7 @@ const INITIAL_GAME_STATE = {
     kills: 0,
     currentWave: 1,
     lives: 3,
+    enemies: new EnemyManager({ width: 0, height: 0 }, (enemy, cause) => {}),
     booster: {
         doubleShot: false,
         shield: false,
@@ -47,7 +46,6 @@ export const useStore = create<Store>()(
             addKills: (delta: number) => set((state) => ({ kills: Math.max(0, state.kills + delta) })),
             appState: 'menu',
             setAppState: (state: AppState) => set({ appState: state }),
-            setCurrentWave: (wave: number) => set({ currentWave: wave }),
             
             // Lives management
             loseLife: () => set((state) => ({ lives: state.lives - 1 })),

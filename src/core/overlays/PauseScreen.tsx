@@ -4,7 +4,7 @@ import { useStore } from '@/store/store';
 import { router } from 'expo-router';
 import { overlayStyles } from '@/styles/styles';
 import PauseButton from '@/ui/PauseButton';
-import { ResetGameButton } from '@/ui/ResetGameButton';
+import { AnimatedButton } from '@/ui/AnimatedButton';
 
 
 export default function PauseOverlay() {
@@ -18,6 +18,11 @@ export default function PauseOverlay() {
     // Reset all game state (score, kills, wave, lives, boosters)
     resetGame();
     router.replace('/game');
+  };
+
+  const handleBackToMenu = () => {
+    setAppState('menu');
+    router.replace('/');
   };
   let BlurComponent: any = View;
   let hasBlur = false;
@@ -38,8 +43,11 @@ export default function PauseOverlay() {
       <View style={PauseOverlayLocalStyles.layoutContainer}>
         <Text style={PauseOverlayLocalStyles.title}>Paused</Text>
         <View style={PauseOverlayLocalStyles.buttonsResume}> 
-          <PauseButton isPaused={true} onPress={() => setAppState('game')} />
-          <ResetGameButton onPress={handleResetGame} />
+          <View style={PauseOverlayLocalStyles.playIconWrap}>
+            <PauseButton size={48} isPaused={true} onPress={() => setAppState('game')} />
+          </View>
+          <AnimatedButton onPress={handleResetGame}>Reset Game</AnimatedButton>
+          <AnimatedButton onPress={handleBackToMenu}>Back to Menu</AnimatedButton>
         </View>
       </View>
     </View>
@@ -71,6 +79,10 @@ const PauseOverlayLocalStyles = StyleSheet.create({
   },
   buttonsResume: {
     marginBottom: 20,
+    alignItems: 'center',
+  },
+  playIconWrap: {
+    marginBottom: 32,
   },
   buttonsRestart: {
     marginBottom: 30,

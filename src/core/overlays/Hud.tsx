@@ -18,7 +18,7 @@ export default function Hud() {
 const styles = StyleSheet.create({
     hud: {
         position: 'absolute',
-        top: 40,
+        top: 55,
         left: 12,
         width: '100%',
     },
@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontFamily: 'OrbitronBold',
         // AAA text glow effect
-        textShadowColor: 'rgba(0, 220, 255, 0.8)',
+        textShadowColor: 'rgba(0, 220, 255, 0.5)',
         textShadowOffset: { width: 0, height: 0 },
         textShadowRadius: 10,
     },

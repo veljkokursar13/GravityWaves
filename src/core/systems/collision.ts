@@ -1,7 +1,7 @@
 //collision detection system
-import { Ship } from '@/entities/ship/types';
-import { Enemy } from '@/entities/enemies/types';
-import { SpaceShipProjectile } from '@/entities/projectiles/types';
+import type { Ship } from '../../entities/ship/types';
+import type { Enemy } from '../../entities/enemies/types';
+import type { SpaceShipProjectile } from '../../entities/projectiles/types';
 
 // Generic entity type for collision detection
 interface CollisionEntity {

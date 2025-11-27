@@ -74,16 +74,11 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   multiplierText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#ffff00',
     fontFamily: 'Orbitron',
+    fontSize: 24,
+    color: '#ffff00',
     textAlign: 'left',
     marginTop: 4,
-    // Yellow glow for multiplier
-    textShadowColor: 'rgba(255, 255, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 5,
   },
 });
 

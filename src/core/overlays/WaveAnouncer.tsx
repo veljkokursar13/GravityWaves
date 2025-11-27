@@ -10,16 +10,17 @@ import Animated, {
   FadeOut
 } from 'react-native-reanimated';
 import { useEffect } from 'react';
+import { useStore } from '@/store/store';
 
 export default function WaveAnouncer({ waveId }: Readonly<{ waveId: number }>) {
   const scale = useSharedValue(0.8);
   const opacity = useSharedValue(0);
-  
+  const currentWave = useStore((state) => state.currentWave);
   useEffect(() => {
     // Pop in animation
     scale.value = withSpring(1, { damping: 12, stiffness: 200 });
     opacity.value = withTiming(1, { duration: 300 });
-  }, [waveId]);
+  }, [currentWave]);
   
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],

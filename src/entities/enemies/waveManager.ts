@@ -1,0 +1,72 @@
+// waveManager.ts
+type WaveConfig = {
+  id: number;
+  baseSpeed: number;
+  hpMultiplier: number;
+  enemies: { kind: string; pattern: string; count: number }[];
+};
+
+type SpawnConfig = {
+  kind: string;
+  pattern: string;
+  speed: number;
+  hpMultiplier: number;
+  initialPosition: { x?: number; y?: number; indexInFormation?: number } | null;
+};
+
+export class WaveManager {
+  waves: WaveConfig[];
+  current = 0;
+  remaining = 0;
+  phase: "between" | "inWave" = "between";
+  spawnCallback: (cfg: SpawnConfig) => void;
+
+  constructor(waves: WaveConfig[], spawnCallback: (cfg: SpawnConfig) => void) {
+    this.waves = Array.isArray(waves) ? waves : [];
+    this.spawnCallback = spawnCallback;
+  }
+
+  startWave() {
+    const wave = Array.isArray(this.waves) ? this.waves[this.current] : undefined;
+    if (!wave || !Array.isArray(wave.enemies)) return;
+
+    // Debug
+    console.log('[WaveManager] startWave', { current: this.current, wave });
+
+    this.phase = "between";
+    this.remaining = wave.enemies.reduce((a: number, e: { count: number }) => a + (e?.count ?? 0), 0);
+
+    setTimeout(() => {
+      this.phase = "inWave";
+
+      if (!Array.isArray(wave.enemies)) return;
+      console.log('[WaveManager] spawning groups', wave.enemies.length);
+      wave.enemies.forEach((group: { kind: string; pattern: string; count: number } | undefined) => {
+        if (!group || typeof group.count !== 'number') return;
+        for (let i = 0; i < group.count; i++) {
+          this.spawnCallback?.({
+            kind: group.kind,
+            pattern: group.pattern,
+            speed: wave.baseSpeed,
+            hpMultiplier: wave.hpMultiplier,
+            initialPosition: group.pattern === 'vFormation'
+              ? { indexInFormation: i - Math.floor((group.count - 1) / 2) }
+              : null,
+          });
+        }
+      });
+    }, 2000);
+  }
+
+  enemyRemoved() {
+    this.remaining--;
+
+    if (this.remaining <= 0) {
+      this.phase = "between";
+      setTimeout(() => {
+        this.current = Math.min(this.current + 1, this.waves.length - 1);
+        this.startWave();
+      }, 1500);
+    }
+  }
+}

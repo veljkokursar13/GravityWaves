@@ -4,63 +4,27 @@ import Animated, {
   useAnimatedStyle, 
   withSpring 
 } from 'react-native-reanimated';
-import { Canvas, Path, Circle } from '@shopify/react-native-skia';
+import { Volume2, VolumeX } from 'lucide-react-native';
 import { useStore } from '@/store/store';
 
 // Neon thin-line volume icon component
 function VolumeIcon({ muted }: { muted: boolean }) {
-  const size = 30;
-  const color = '#00dcff'; // Cyan neon
-  
-  return (
-    <Canvas style={{ width: size, height: size }}>
-      {/* Speaker cone */}
-      <Path
-        path="M8 10 L8 20 L14 24 L14 6 L8 10 Z"
-        color={color}
-        style="stroke"
-        strokeWidth={1.5}
-      />
-      
-      {!muted && (
-        <>
-          {/* Sound waves */}
-          <Path
-            path="M18 11 Q20 12, 20 15 Q20 18, 18 19"
-            color={color}
-            style="stroke"
-            strokeWidth={1.5}
-          />
-          <Path
-            path="M22 9 Q25 11, 25 15 Q25 19, 22 21"
-            color={color}
-            style="stroke"
-            strokeWidth={1.5}
-          />
-        </>
-      )}
-      
-      {muted && (
-        <>
-          {/* X mark */}
-          <Path
-            path="M18 10 L26 20"
-            color="#ff4444"
-            style="stroke"
-            strokeWidth={2}
-          />
-          <Path
-            path="M26 10 L18 20"
-            color="#ff4444"
-            style="stroke"
-            strokeWidth={2}
-          />
-        </>
-      )}
-      
-      {/* Neon glow effect */}
-      <Circle cx={15} cy={15} r={14} color={`${color}20`} />
-    </Canvas>
+  return muted ? (
+    <VolumeX
+      color="#ffffff"
+      size={30}
+      textShadowColor="rgba(0, 220, 255, 0.5)"
+      textShadowOffset={{ width: 0, height: 0 }}
+      textShadowRadius={10}
+    />
+  ) : (
+    <Volume2
+      color="#ffffff"
+      size={30}
+      textShadowColor="rgba(0, 220, 255, 0.5)"
+      textShadowOffset={{ width: 0, height: 0 }}
+      textShadowRadius={10}
+    />
   );
 }
 
@@ -104,7 +68,7 @@ const styles = StyleSheet.create({
   audioControls: {
     position: 'absolute',
     top: 50,
-    right: 25,
+    right: 15,
     zIndex: 10,
   },
   button: {
