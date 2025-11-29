@@ -19,7 +19,7 @@ export default function JetFlames({ x, y, shipWidth, shipHeight, intensity = 0 }
 
   // Flame geometry
   const baseWidth = shipWidth * 0.04;
-  const baseLength = shipHeight * 0.5 ;
+  const baseLength = shipHeight * 0.5;
 
   // Subtle flicker using time
   const flicker = 0.85 + 0.15 * (0.5 + 0.5 * Math.sin(Date.now() / 45));
@@ -60,3 +60,4 @@ export default function JetFlames({ x, y, shipWidth, shipHeight, intensity = 0 }
     </Group>
   );
 }
+

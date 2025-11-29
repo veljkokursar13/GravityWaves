@@ -15,6 +15,7 @@ import Hud from "@/core/overlays/Hud";
 import ComboCounter from "@/core/overlays/ComboCounter";
 import PowerUpIndicator from "@/core/overlays/PowerUpIndicator";
 import JetFlames from "@/entities/ship/JetFlames";
+import JetEngineCircles from "@/entities/ship/JetEngineCircles";
 import LifeBar from "@/core/overlays/LifeBar";
 import { useShipFollow } from "@/hooks/useShipFollow";
 import { useCameraShake } from "@/hooks/useCameraShake";
@@ -25,6 +26,8 @@ import { WAVES } from "@/entities/enemies/waves";
 import EnemySprite from "@/entities/enemies/EnemySprite";
 import { detectBulletEnemyCollisions, detectShipEnemyCollisions } from "@/core/systems/collision";
 import type { Enemy } from "@/entities/enemies/types";
+import WaveAnouncer from "@/core/overlays/WaveAnouncer";
+import ParticleExplosion from "@/entities/effects/ParticleExplosion";
 
 const BOTTOM_UI_HEIGHT = 80; // Reserved space at bottom for UI elements
 const START_OFFSET_FROM_BOTTOM = 50; // Starting distance from bottom UI
@@ -51,6 +54,22 @@ export default function GameEngine() {
     const gameOverTriggered = useRef<boolean>(false);
     const enemyManagerRef = useRef<EnemyManager | null>(null);
     const waveManagerRef = useRef<WaveManager | null>(null);
+    const [waveOverlay, setWaveOverlay] = useState<{ visible: boolean; wave: number }>({ visible: false, wave: 0 });
+    const waveHideTimerRef = useRef<NodeJS.Timeout | null>(null);
+    
+    // Explosion effects
+    interface Explosion { id: string; x: number; y: number; time: number; }
+    const [explosions, setExplosions] = useState<Explosion[]>([]);
+    
+    const spawnExplosion = useCallback((x: number, y: number) => {
+        const newExplosion: Explosion = {
+            id: `exp-${Date.now()}-${Math.random()}`,
+            x,
+            y,
+            time: 0
+        };
+        setExplosions(prev => [...prev, newExplosion]);
+    }, []);
     
     // Combo system
     const { combo, multiplier, reset: resetCombo } = useCombo();
@@ -80,6 +99,14 @@ export default function GameEngine() {
         }
     }, [appState, width, height, resetCombo]);
 
+    // Trigger game over when lives reach 0
+    useEffect(() => {
+        if (isDead && !gameOverTriggered.current) {
+            gameOverTriggered.current = true;
+            setAppState('gameover');
+        }
+    }, [isDead, setAppState]);
+
     // Ensure store appState is 'game' when engine mounts so waves can start
     useEffect(() => {
         if (appState !== 'game') {
@@ -98,6 +125,7 @@ export default function GameEngine() {
                         const scoreByKind: Record<string, number> = { drone: 10, rogue: 15, heavy: 25, kamikaze: 12, boss: 200 };
                         addScore(scoreByKind[enemy.kind] ?? 10);
                         addKills(1);
+                        spawnExplosion(enemy.x, enemy.y);
                     } else if (cause === 'passed') {
                         addScore(-100);
                     }
@@ -106,14 +134,25 @@ export default function GameEngine() {
             );
         }
         if (!waveManagerRef.current) {
-            waveManagerRef.current = new WaveManager(WAVES, (cfg: any) => enemyManagerRef.current?.spawn(cfg));
+            waveManagerRef.current = new WaveManager(
+                WAVES,
+                (cfg: any) => enemyManagerRef.current?.spawn(cfg),
+                ({ wave, untilMs }) => {
+                    setWaveOverlay({ visible: true, wave });
+                    if (waveHideTimerRef.current) clearTimeout(waveHideTimerRef.current);
+                    waveHideTimerRef.current = setTimeout(() => {
+                        setWaveOverlay((prev) => ({ ...prev, visible: false }));
+                        waveHideTimerRef.current = null;
+                    }, Math.max(250, untilMs));
+                }
+            );
         }
         if (appState === "game") {
             if (waveManagerRef.current.phase !== 'inWave' && waveManagerRef.current.remaining === 0) {
                 waveManagerRef.current.startWave();
             }
         }
-    }, [width, height, appState, addScore, addKills]);
+    }, [width, height, appState, addScore, addKills, spawnExplosion]);
 
     // Unconditional wave start on mount (ensures waves begin even if appState timing differs)
     useEffect(() => {
@@ -182,6 +221,14 @@ export default function GameEngine() {
         }
         
         updateBulletsRef(delta); // Updates ref only, not state
+        
+        // Update explosions
+        setExplosions(prev => {
+            return prev
+                .map(exp => ({ ...exp, time: exp.time + dt }))
+                .filter(exp => exp.time < 0.5); // Remove after 500ms
+        });
+        
         // Enemies update and collisions
         const em = enemyManagerRef.current;
         if (em) {
@@ -229,6 +276,16 @@ export default function GameEngine() {
                     {enemyManagerRef.current?.enemies.map(e => (
                         <EnemySprite key={e.id} enemy={e} />
                     ))}
+                    
+                    {/* Explosions */}
+                    {explosions.map(exp => (
+                        <ParticleExplosion 
+                            key={exp.id} 
+                            x={exp.x} 
+                            y={exp.y} 
+                            time={exp.time}
+                        />
+                    ))}
 
                     {/* Jet flames behind ship when moving */}
                     {(() => {
@@ -237,13 +294,24 @@ export default function GameEngine() {
                         const intensity = Math.max(0, Math.min(1, (speed - 100) / 800));
                         if (intensity <= 0) return null;
                         return (
-                            <JetFlames
-                                x={ship.x}
-                                y={ship.y}
-                                shipWidth={ship.width}
-                                shipHeight={ship.height}
-                                intensity={intensity}
-                            />
+                            <>
+                                {/* Engine glow circles */}
+                                <JetEngineCircles
+                                    x={ship.x}
+                                    y={ship.y}
+                                    shipWidth={ship.width}
+                                    shipHeight={ship.height}
+                                    intensity={intensity}
+                                />
+                                {/* Flame trails */}
+                                <JetFlames
+                                    x={ship.x}
+                                    y={ship.y}
+                                    shipWidth={ship.width}
+                                    shipHeight={ship.height}
+                                    intensity={intensity}
+                                />
+                            </>
                         );
                     })()}
 
@@ -251,6 +319,7 @@ export default function GameEngine() {
                     <Ship ship={ship} velocityX={velocityX.current} isInvincible={isInvincible} />
                 </Group>
             </Canvas>
+            <WaveAnouncer wave={waveOverlay.wave} visible={waveOverlay.visible} />
             
             {/* Gesture detector for ship control - native performance */}
             {!isGameOver && (

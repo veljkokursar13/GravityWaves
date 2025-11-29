@@ -38,6 +38,7 @@ export default function Ship({ ship, velocityX, isInvincible = false }: Readonly
         { translateY: -ship.height / 2 },
       ]}
     >
+      {/* Ship sprite */}
       <Image
         image={shipImage}
         x={0}

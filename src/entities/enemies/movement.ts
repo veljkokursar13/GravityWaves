@@ -23,7 +23,8 @@ export function updateEnemyPosition(e: Enemy, bounds: Bounds, dt: number, shipX:
 
       e.rotation = e.direction * 0.25;
 
-      if (e.x < 40 || e.x > bounds.width - 40) {
+      // Flip direction at true sprite edges (center-based coordinates)
+      if (e.x <= e.width / 2 || e.x >= bounds.width - e.width / 2) {
         e.direction *= -1;
       }
       return e;
@@ -44,6 +45,24 @@ export function updateEnemyPosition(e: Enemy, bounds: Bounds, dt: number, shipX:
     case 'vFormation': {
       // Offsets baked into spawnX; maintain formation while descending
       return { ...e, x: e.spawnX, y: baseY, t };
+    }
+    case 'roguePath': {
+      e.t += dt;
+      e.x = e.spawnX + Math.sin(e.t * 2) * 100;
+      e.y += e.speed * 50 * dt;
+      return e;
+    }
+    case 'armoredDronePath': {
+      e.t += dt;
+      e.x = e.spawnX + Math.sin(e.t * 2) * 100;
+      e.y += e.speed * 50 * dt;
+      return e;
+    }
+    case 'kamikazePath': {
+      e.t += dt;
+      e.x = e.spawnX + Math.sin(e.t * 2) * 100;
+      e.y += e.speed * 50 * dt;
+      return e;
     }
 
     default:

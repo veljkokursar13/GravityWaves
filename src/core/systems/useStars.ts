@@ -19,9 +19,9 @@ export type StarsLayers = {
   backgroundStars: Star[];
 };
 
-const NEAR_COUNT = 15;
-const FAR_COUNT = 40;
-const BACKGROUND_COUNT = 80;
+const NEAR_COUNT = 20;
+const FAR_COUNT = 6;
+const BACKGROUND_COUNT = 150;
 
 const NEAR_SPEED = 60; // px/sec
 const FAR_SPEED = 30;  // px/sec

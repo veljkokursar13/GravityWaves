@@ -68,17 +68,31 @@ export default function ComboCounter({ combo, multiplier }: ComboCounterProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 100,
-    left: 20,
+    top: 120,
+    left: 0,
+    right: 0,
     alignItems: 'center',
     zIndex: 100,
+  },
+  comboText: {
+    fontFamily: 'Orbitron',
+    fontSize: 32,
+    color: '#ffffff',
+    fontWeight: '700',
+    textAlign: 'center',
+    textShadowColor: 'rgba(255, 255, 255, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 15,
   },
   multiplierText: {
     fontFamily: 'Orbitron',
     fontSize: 24,
-    color: '#ffff00',
-    textAlign: 'left',
+    color: '#ffffff',
+    textAlign: 'center',
     marginTop: 4,
+    textShadowColor: 'rgba(255, 255, 255, 0.4)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
 });
 

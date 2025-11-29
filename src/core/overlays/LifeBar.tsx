@@ -88,6 +88,8 @@ const LifeBar = () => {
   const lives = useStore((s) => s.lives);
   const isInvincible = useStore((s) => s.booster.shield);
 
+  if (lives === 0) return null;
+
   return (
     <View style={styles.container}>
       <View style={[styles.heartsRow, { opacity: 0.7 }]}>

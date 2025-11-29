@@ -11,5 +11,19 @@ export type SpaceShipProjectile = {
     rotation: number;
     damage: number;
     type: 'spaceShipProjectile';
-    time:number;
-}
+    time: number;
+};
+
+export type EnemyProjectile = {
+    id: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    speed: number;
+    direction: number;
+    rotation: number;
+    damage: number;
+    type: 'enemyProjectile';
+    time: number;
+};

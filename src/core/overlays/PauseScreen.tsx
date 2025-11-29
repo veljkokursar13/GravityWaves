@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useStore } from '@/store/store';
 import { router } from 'expo-router';
 import { overlayStyles } from '@/styles/styles';
@@ -11,6 +11,19 @@ export default function PauseOverlay() {
   const appState = useStore((state) => state.appState);
   const setAppState = useStore((state) => state.setAppState);
   const resetGame = useStore((state) => state.resetGame);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    if (appState === 'paused') {
+      // Reset and trigger fade-in
+      fadeAnim.setValue(0);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [appState, fadeAnim]);
   
   if (appState !== 'paused') return null;
   
@@ -34,7 +47,7 @@ export default function PauseOverlay() {
     hasBlur = false;
   }
   return (
-    <View style={overlayStyles.overlay} pointerEvents="auto">
+    <Animated.View style={[overlayStyles.overlay, { opacity: fadeAnim }]} pointerEvents="auto">
       {hasBlur ? (
         <BlurComponent intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
       ) : (
@@ -50,7 +63,7 @@ export default function PauseOverlay() {
           <AnimatedButton onPress={handleBackToMenu}>Back to Menu</AnimatedButton>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

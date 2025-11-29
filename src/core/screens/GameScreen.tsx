@@ -10,7 +10,7 @@ export default function GameScreen() {
     return (
         <View style={{ flex: 1 }}>
             <GameEngine />
-            <View style={{ position: 'absolute', top: 60, right: 65, zIndex: 10, shadowColor: 'rgba(0, 220, 255, 0.5)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10 }}>
+            <View style={{ position: 'absolute', top: 60, right: 60, zIndex: 10 }}>
                 <PauseButton
                   isPaused={paused}
                   onPress={() => { setAppState(paused ? 'game' : 'paused'); }}

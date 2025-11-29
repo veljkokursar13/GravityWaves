@@ -10,7 +10,7 @@ export function useShootBooster() {
     const doubleShot = useStore((state) => state.booster.doubleShot);
     
     useEffect(() => {
-        if (score > 600 && !doubleShot) {
+        if (score > 300 && !doubleShot) {
             // Activate double shot booster in store
             useStore.setState((state) => ({
                 booster: { ...state.booster, doubleShot: true }

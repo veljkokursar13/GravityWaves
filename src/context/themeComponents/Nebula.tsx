@@ -126,4 +126,3 @@ const styles = StyleSheet.create({
     zIndex: 0, // Changed from -1 to 0 (stars are 1, shooting stars 2)
   },
 });
-

@@ -20,10 +20,16 @@ export class WaveManager {
   remaining = 0;
   phase: "between" | "inWave" = "between";
   spawnCallback: (cfg: SpawnConfig) => void;
+  onBetween?: (info: { wave: number; untilMs: number }) => void;
 
-  constructor(waves: WaveConfig[], spawnCallback: (cfg: SpawnConfig) => void) {
+  constructor(
+    waves: WaveConfig[],
+    spawnCallback: (cfg: SpawnConfig) => void,
+    onBetween?: (info: { wave: number; untilMs: number }) => void
+  ) {
     this.waves = Array.isArray(waves) ? waves : [];
     this.spawnCallback = spawnCallback;
+    this.onBetween = onBetween;
   }
 
   startWave() {
@@ -32,6 +38,10 @@ export class WaveManager {
 
     this.phase = "between";
     this.remaining = wave.enemies.reduce((a: number, e: { count: number }) => a + (e?.count ?? 0), 0);
+
+    const spawnDelayMs = 2000;
+    const announceMs = Math.max(0, Math.min(1500, spawnDelayMs - 250));
+    this.onBetween?.({ wave: this.current + 1, untilMs: announceMs });
 
     setTimeout(() => {
       this.phase = "inWave";
@@ -51,7 +61,7 @@ export class WaveManager {
           });
         }
       });
-    }, 2000);
+    }, spawnDelayMs);
   }
 
   enemyRemoved() {

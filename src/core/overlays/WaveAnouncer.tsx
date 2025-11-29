@@ -10,22 +10,30 @@ import Animated, {
   FadeOut
 } from 'react-native-reanimated';
 import { useEffect } from 'react';
-import { useStore } from '@/store/store';
 
-export default function WaveAnouncer({ waveId }: Readonly<{ waveId: number }>) {
+interface WaveAnouncerProps {
+  wave: number;
+  visible: boolean;
+}
+
+export default function WaveAnouncer({ wave, visible }: Readonly<WaveAnouncerProps>) {
   const scale = useSharedValue(0.8);
   const opacity = useSharedValue(0);
-  const currentWave = useStore((state) => state.currentWave);
+  
   useEffect(() => {
-    // Pop in animation
-    scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-    opacity.value = withTiming(1, { duration: 300 });
-  }, [currentWave]);
+    if (visible) {
+      // Pop in animation
+      scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+      opacity.value = withTiming(1, { duration: 300 });
+    }
+  }, [visible, wave, scale, opacity]);
   
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
     opacity: opacity.value,
   }));
+
+  if (!visible) return null;
 
   return (
     <Animated.View 
@@ -35,7 +43,7 @@ export default function WaveAnouncer({ waveId }: Readonly<{ waveId: number }>) {
       exiting={FadeOut.duration(300)}
     >
       <Animated.View style={animatedStyle}>
-        <Text style={WaveAnouncerLocalStyles.title}>Wave {waveId}</Text>
+        <Text style={WaveAnouncerLocalStyles.title}>Wave {wave}</Text>
         <Text style={WaveAnouncerLocalStyles.subtitle}>Get Ready</Text>
       </Animated.View>
     </Animated.View>
@@ -53,9 +61,12 @@ const WaveAnouncerLocalStyles = StyleSheet.create({
 		alignItems: 'center',
 		backgroundColor: 'rgba(0, 0, 0, 0.6)',
 		zIndex: 1000,
+		alignSelf: 'center',
+		alignContent: 'center',
+
 	},
 	title: {
-		fontSize: 48,
+		fontSize: 64,
 		color: '#fff',
 		marginBottom: 12,
 		fontWeight: '700',
