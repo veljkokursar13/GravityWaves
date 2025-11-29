@@ -13,7 +13,7 @@ export type StarDust = {
   speed: number; // Individual speed multiplier for variety
 };
 
-const DUST_COUNT = 40;
+const DUST_COUNT = 80
 const BASE_SPEED = 100; // px/sec (moves left)
 
 function generateStarDust(count: number, width: number, height: number): StarDust[] {

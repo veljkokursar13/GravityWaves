@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import styles from '@/styles/styles';
 import { AnimatedButton } from '@/ui/AnimatedButton';
+import TypingEffect from '@/context/themeComponents/TypingEffect';
 
 
 export default function MainMenuScreen() {
@@ -16,9 +17,14 @@ export default function MainMenuScreen() {
         <Text style={styles.mainMenuTitle}>Gravity Waves</Text>
       </Animated.View>
       
-      {/* Description fades in */}
+      {/* Description fades in with typing effect */}
       <Animated.View entering={FadeInUp.duration(600).delay(400)}>
-        <Text style={styles.mainMenuDescription}>A game about gravity waves</Text>
+        <TypingEffect 
+          text="They are here and they come in waves" 
+          style={styles.mainMenuDescription}
+          speed={80}
+          delay={1000}
+        />
       </Animated.View>
       
       {/* Button pops in */}

@@ -31,8 +31,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontFamily: 'OrbitronBold',
         // AAA text glow effect
-        textShadowColor: 'rgba(0, 220, 255, 0.5)',
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: 10,
+      
     },
 });

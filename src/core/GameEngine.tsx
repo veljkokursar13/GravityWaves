@@ -28,6 +28,7 @@ import { detectBulletEnemyCollisions, detectShipEnemyCollisions } from "@/core/s
 import type { Enemy } from "@/entities/enemies/types";
 import WaveAnouncer from "@/core/overlays/WaveAnouncer";
 import ParticleExplosion from "@/entities/effects/ParticleExplosion";
+import { useAudio } from "@/hooks/useAudio";
 
 const BOTTOM_UI_HEIGHT = 80; // Reserved space at bottom for UI elements
 const START_OFFSET_FROM_BOTTOM = 50; // Starting distance from bottom UI
@@ -37,6 +38,26 @@ export default function GameEngine() {
     const { appState, setAppState, addScore, addKills } = useStore();
     const paused = appState === 'paused';
     const isGameOver = appState === 'gameover';
+    const audio = useAudio();
+    
+    // Play game BGM when entering game
+    useEffect(() => {
+        const playGameMusic = async () => {
+            try {
+                await audio.stopMusic(); // Stop menu music
+                await audio.playMusic('galacticheartbeat', { loop: true, volume: 0.7 });
+            } catch (error) {
+                console.warn('[GameEngine] Failed to play game music:', error);
+            }
+        };
+        
+        playGameMusic();
+        
+        // Cleanup: stop game music when leaving
+        return () => {
+            audio.stopMusic().catch(console.warn);
+        };
+    }, []); // Empty deps - only run on mount/unmount
     
     const [ship, setShip] = useState<ShipType>({
         ...initialShip,

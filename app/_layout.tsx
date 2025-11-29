@@ -41,7 +41,7 @@ export default function RootShellLayout() {
         <ThemeProvider>
           <AudioProvider
             preload={[
-              { id: 'gravity_waves_soundtrack', source: require('../src/assets/audio/gravity_waves_soundtrack.mp3'), kind: 'music' },
+              { id: 'galacticheartbeat', source: require('../src/assets/audio/galacticheartbeat.mp3'), kind: 'music' },
             ]}
           >
             <DeepSpace />

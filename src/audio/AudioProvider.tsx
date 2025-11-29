@@ -37,6 +37,19 @@ export function AudioProvider(props: { children: React.ReactNode; preload?: Prel
 
   useEffect(() => {
     configureAudioMode();
+    
+    // Auto-play music when provider mounts
+    const autoPlayMusic = async () => {
+      try {
+        // Wait a bit for audio system to be ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await managerRef.current.playMusic('theyarehere', { loop: true, volume: 0.7 });
+      } catch (error) {
+        console.warn('[AudioProvider] Auto-play failed:', error);
+      }
+    };
+    
+    autoPlayMusic();
   }, []);
 
   useEffect(() => {
