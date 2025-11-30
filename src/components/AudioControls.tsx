@@ -25,17 +25,11 @@ export function AudioControls({ size = 30 }: AudioControlsProps) {
           <VolumeX
             color="#ffffff"
             size={size}
-            textShadowColor="rgba(0, 220, 255, 0.5)"
-            textShadowOffset={{ width: 0, height: 0 }}
-            textShadowRadius={10}
           />
         ) : (
           <Volume2
             color="#ffffff"
             size={size}
-            textShadowColor="rgba(0, 220, 255, 0.5)"
-            textShadowOffset={{ width: 0, height: 0 }}
-            textShadowRadius={10}
           />
         )}
       </Pressable>

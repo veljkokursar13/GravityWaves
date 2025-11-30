@@ -49,16 +49,20 @@ export class WaveManager {
       if (!Array.isArray(wave.enemies)) return;
       wave.enemies.forEach((group: { kind: string; pattern: string; count: number } | undefined) => {
         if (!group || typeof group.count !== 'number') return;
+        
+        // Stagger spawn timing per enemy (150ms apart)
         for (let i = 0; i < group.count; i++) {
-          this.spawnCallback?.({
-            kind: group.kind,
-            pattern: group.pattern,
-            speed: wave.baseSpeed,
-            hpMultiplier: wave.hpMultiplier,
-            initialPosition: group.pattern === 'vFormation'
-              ? { indexInFormation: i - Math.floor((group.count - 1) / 2) }
-              : null,
-          });
+          setTimeout(() => {
+            this.spawnCallback?.({
+              kind: group.kind,
+              pattern: group.pattern,
+              speed: wave.baseSpeed,
+              hpMultiplier: wave.hpMultiplier,
+              initialPosition: group.pattern === 'vFormation'
+                ? { indexInFormation: i - Math.floor((group.count - 1) / 2) }
+                : null,
+            });
+          }, i * 150); // 150ms stagger - looks amazing!
         }
       });
     }, spawnDelayMs);

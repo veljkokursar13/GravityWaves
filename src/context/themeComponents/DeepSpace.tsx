@@ -11,9 +11,9 @@ export default function SpaceCreator() {
   
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Base gradient */}
+      {/* Base gradient - lowest layer */}
       <LinearGradient
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, { zIndex: -1 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         colors={[colors.backgroundGradientStart, colors.backgroundGradientEnd]}

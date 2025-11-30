@@ -6,7 +6,7 @@ type GameLoopCallback = (delta: number) => void;
 export function useGameLoop(callback: GameLoopCallback, paused: boolean = false) {
     const delta = useDeltaTime();
     const callbackRef = useRef(callback);
-    
+
     // Keep callback ref fresh
     useEffect(() => {
         callbackRef.current = callback;
@@ -18,4 +18,3 @@ export function useGameLoop(callback: GameLoopCallback, paused: boolean = false)
         }
     }, [delta, paused]);
 }
-

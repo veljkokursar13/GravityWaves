@@ -19,7 +19,6 @@ interface WaveAnouncerProps {
 export default function WaveAnouncer({ wave, visible }: Readonly<WaveAnouncerProps>) {
   const scale = useSharedValue(0.8);
   const opacity = useSharedValue(0);
-  
   useEffect(() => {
     if (visible) {
       // Pop in animation

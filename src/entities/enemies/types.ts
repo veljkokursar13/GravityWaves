@@ -1,5 +1,5 @@
 export type EnemyKind = 'drone' | 'heavy' | 'kamikaze' | 'rogue' | 'boss' | 'armoredDrone';
-export type MovementPattern = 'zigzag' | 'sCurve' | 'vFormation' | 'roguePath' | 'armoredDronePath' | 'kamikazePath';
+export type MovementPattern = 'zigzag' | 'sCurve' | 'vFormation' | 'roguePath' | 'armoredDronePath' | 'kamikazePath' | 'bossPath';
 
 export type Enemy = {
   id: string;
@@ -22,4 +22,5 @@ export type Enemy = {
   rotation: number;
   direction: 1 | -1; // for patterns
   indexInFormation?: number;
+  shootCooldown?: number; // for shooting enemies
 };

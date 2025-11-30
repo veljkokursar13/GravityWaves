@@ -25,9 +25,9 @@ export class EnemyManager {
       drone: 45,
       heavy: 60,
       kamikaze: 40,
-      rogue: 50,
-      boss: 100,
-      armoredDrone: 55,
+      rogue: 65,
+      boss: 150,
+      armoredDrone: 80,
     };
 
     const hpBase = {
@@ -79,6 +79,10 @@ export class EnemyManager {
       rotation: 0,
       direction: Math.random() < 0.5 ? 1 : -1,
       indexInFormation: initialPosition?.indexInFormation,
+      // Initialize shootCooldown for armored drones, heavy, and boss
+      shootCooldown: (kind === 'armoredDrone' || kind === 'heavy' || kind === 'boss') 
+        ? (kind === 'boss' ? 1.0 + Math.random() * 0.5 : 1.5 + Math.random()) 
+        : undefined,
     });
   }
 
@@ -102,54 +106,77 @@ export class EnemyManager {
   update(dt: number, shipX: number, shipY: number) {
     const { height } = this.bounds;
 
-    for (let i = this.enemies.length - 1; i >= 0; i--) {
-      const e = this.enemies[i];
-
-      const updated = updateEnemyPosition(e, this.bounds, dt, shipX, shipY);
+    // Step 1: Update positions
+    this.enemies = this.enemies.map(e => 
+      updateEnemyPosition(e, this.bounds, dt, shipX, shipY)
+    );
+    
+    // Step 2: Apply separation to prevent overlap
+    this.separateEnemies();
+    
+    // Step 3: Clamp positions and remove off-screen enemies
+    this.enemies = this.enemies.filter(e => {
       // Clamp horizontally based on sprite width (center-based coordinates)
-      {
-        const half = updated.width / 2;
-        if (updated.x < half) updated.x = half;
-        if (updated.x > this.bounds.width - half) updated.x = this.bounds.width - half;
+      const half = e.width / 2;
+      e.x = Math.max(half, Math.min(this.bounds.width - half, e.x));
+      
+      // Check if passed screen
+      if (e.y > height + e.height * 1.2) {
+        this.removeEnemy(e.id, "passed");
+        return false;
       }
-      this.enemies[i] = updated;
+      
+      return true;
+    });
+  }
 
-      if (updated.y > height + updated.height * 1.2) {
-        this.removeEnemy(updated.id, "passed");
-      }
-    }
+  // Separate overlapping enemies to prevent visual stacking
+  private separateEnemies() {
+    const SEPARATION_DISTANCE = 10; // Extra buffer between enemies (pixels)
+    const PUSH_STRENGTH = 0.4; // How much to push (0-1), lower = smoother
 
-    // Horizontal separation pass to avoid enemy overlaps
-    // - Prefers moving non-formation enemies when colliding with vFormation
-    // - Keeps movements minimal and re-clamps to width after shifts
-    for (let a = 0; a < this.enemies.length; a++) {
-      for (let b = a + 1; b < this.enemies.length; b++) {
-        const A = this.enemies[a];
-        const B = this.enemies[b];
-        const dx = Math.abs(A.x - B.x);
-        const dy = Math.abs(A.y - B.y);
-        const overlapX = (A.width + B.width) / 2 - dx;
-        const overlapY = (A.height + B.height) / 2 - dy;
-        if (overlapX > 0 && overlapY > 0) {
-          // Decide how to push: prefer moving non-formation enemy if possible
-          let pushA = 0, pushB = 0;
-          if (A.pattern === 'vFormation' && B.pattern !== 'vFormation') {
-            pushB = (A.x < B.x ? 1 : -1) * overlapX;
-          } else if (B.pattern === 'vFormation' && A.pattern !== 'vFormation') {
-            pushA = (B.x < A.x ? 1 : -1) * overlapX;
-          } else {
-            const dir = A.x <= B.x ? -1 : 1;
-            const halfPush = overlapX / 2;
-            pushA = dir * halfPush;
-            pushB = -dir * halfPush;
-          }
-          if (pushA !== 0) {
-            const halfA = A.width / 2;
-            A.x = Math.max(halfA, Math.min(this.bounds.width - halfA, A.x + pushA));
-          }
-          if (pushB !== 0) {
-            const halfB = B.width / 2;
-            B.x = Math.max(halfB, Math.min(this.bounds.width - halfB, B.x + pushB));
+    // Check all enemy pairs
+    for (let i = 0; i < this.enemies.length; i++) {
+      for (let j = i + 1; j < this.enemies.length; j++) {
+        const e1 = this.enemies[i];
+        const e2 = this.enemies[j];
+        
+        const dx = e1.x - e2.x;
+        const dy = e1.y - e2.y;
+        const distance = Math.hypot(dx, dy);
+        
+        // Calculate minimum safe distance (half of each size + buffer)
+        const minDistance = (e1.width + e2.width) / 2 + SEPARATION_DISTANCE;
+        
+        if (distance < minDistance && distance > 0) {
+          // Calculate overlap amount
+          const overlap = minDistance - distance;
+          const pushX = (dx / distance) * overlap * PUSH_STRENGTH;
+          const pushY = (dy / distance) * overlap * PUSH_STRENGTH;
+          
+          // Determine push weights based on enemy type
+          let weight1 = 1.0;
+          let weight2 = 1.0;
+          
+          // Boss doesn't get pushed (too heavy)
+          if (e1.kind === 'boss') weight1 = 0;
+          if (e2.kind === 'boss') weight2 = 0;
+          
+          // Heavy/armored enemies push lighter enemies more
+          if (e1.kind === 'heavy' || e1.kind === 'armoredDrone') weight1 = 0.7;
+          if (e2.kind === 'heavy' || e2.kind === 'armoredDrone') weight2 = 0.7;
+          
+          // V-formation tries to maintain position
+          if (e1.pattern === 'vFormation') weight1 = 0.5;
+          if (e2.pattern === 'vFormation') weight2 = 0.5;
+          
+          const totalWeight = weight1 + weight2;
+          if (totalWeight > 0) {
+            // Push enemies apart proportionally
+            e1.x += pushX * (weight1 / totalWeight);
+            e1.y += pushY * (weight1 / totalWeight);
+            e2.x -= pushX * (weight2 / totalWeight);
+            e2.y -= pushY * (weight2 / totalWeight);
           }
         }
       }

@@ -5,7 +5,6 @@ import { useStore } from '@/store/store';
 
 // Button with gradient border only; fill stays transparent until pressed
 export const ResetGameButton = ({ onPress }: { onPress: () => void }) => {
-  const { resetGame } = useStore();
   return (
     <View style={styles.container}>
       <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.topEdge} />
@@ -13,7 +12,7 @@ export const ResetGameButton = ({ onPress }: { onPress: () => void }) => {
       <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }} style={styles.leftEdge} />
       <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.rightEdge} />
 
-      <Pressable onPress={() => resetGame()} style={({ pressed }: { pressed: boolean }) => [styles.inner, pressed && styles.innerPressed]}>
+      <Pressable onPress={onPress} style={({ pressed }: { pressed: boolean }) => [styles.inner, pressed && styles.innerPressed]}>
         <RNText style={styles.text}>Reset Game</RNText>
       </Pressable>
     </View>

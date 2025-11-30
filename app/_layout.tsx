@@ -9,6 +9,7 @@ import { ThemeProvider } from '@/context/themeProvider';
 import DeepSpace from '@/context/themeComponents/DeepSpace';
 import { AudioProvider } from '@/audio/AudioProvider';
 import { AudioControls } from '@/components/AudioControls';
+import { AppStateHandler } from '@/core/statelistener/AppStateListener';
 
 export default function RootShellLayout() {
   const { fontsLoaded, error } = useFonts();
@@ -19,7 +20,7 @@ export default function RootShellLayout() {
 
   useEffect(() => {
     if (error) {
-      console.warn('[fonts] failed to load fonts', error);
+      // Silent fail - fonts will fallback to system fonts
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [error]);
@@ -41,9 +42,11 @@ export default function RootShellLayout() {
         <ThemeProvider>
           <AudioProvider
             preload={[
+              { id: 'theyarehere', source: require('../src/assets/audio/theyarehere.mp3'), kind: 'music' },
               { id: 'galacticheartbeat', source: require('../src/assets/audio/galacticheartbeat.mp3'), kind: 'music' },
             ]}
           >
+            <AppStateHandler />
             <DeepSpace />
             <AudioControls />
             <Slot />

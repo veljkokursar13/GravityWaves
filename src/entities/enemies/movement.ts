@@ -3,69 +3,128 @@ import type { Enemy } from '@/entities/enemies/types';
 type Bounds = { width: number; height: number };
 
 export function updateEnemyPosition(e: Enemy, bounds: Bounds, dt: number, shipX: number, shipY: number): Enemy {
-  const t = e.t + dt;
-  // Convert logical speed to pixels/sec
-  const speedPxPerSec = e.speed * 120;
-  const baseY = e.y + speedPxPerSec * dt;
+  // Create a copy to avoid mutation
+  const updated = { ...e };
+  const t = updated.t + dt;
+  const speedPxPerSec = updated.speed * 120;
+  const baseY = updated.y + speedPxPerSec * dt;
 
-  switch (e.pattern) {
+  switch (updated.pattern) {
     case 'zigzag': {
-      const flipInterval = 0.7;
-      if (e.t > flipInterval) {
-        e.direction *= -1;
-        e.t = 0;
-      }
-      const H_SPEED = 100;
-      const V_SPEED = e.speed * 50;
+      const newT = updated.t + dt;
+      const AMPLITUDE = 90;
+      const FREQUENCY = 2.4;
 
-      e.x += e.direction * H_SPEED * dt;
-      e.y += V_SPEED * dt;
-
-      e.rotation = e.direction * 0.25;
-
-      // Flip direction at true sprite edges (center-based coordinates)
-      if (e.x <= e.width / 2 || e.x >= bounds.width - e.width / 2) {
-        e.direction *= -1;
-      }
-      return e;
+      return {
+        ...updated,
+        t: newT,
+        x: updated.spawnX + Math.sin(newT * FREQUENCY) * AMPLITUDE,
+        y: updated.y + updated.speed * 45 * dt,
+        rotation: Math.sin(newT * FREQUENCY) * 0.35,
+      };
     }
 
     case 'sCurve': {
-      e.t += dt;
+      const newT = updated.t + dt;
+      const AMPLITUDE = 120;
+      const WAVE_1 = Math.sin(newT * 1.6);
+      const WAVE_2 = Math.sin(newT * 0.8) * 0.4;
 
-      const AMPLITUDE = 80;
-      const FREQUENCY = 1.6;
-
-      e.x = e.spawnX + Math.sin(e.t * FREQUENCY) * AMPLITUDE;
-      e.y += e.speed * 50 * dt;
-      e.rotation = Math.cos(e.t * FREQUENCY) * 0.25;
-      return e;
+      return {
+        ...updated,
+        t: newT,
+        x: updated.spawnX + (WAVE_1 + WAVE_2) * AMPLITUDE,
+        y: updated.y + updated.speed * 50 * dt,
+        rotation: Math.cos(newT * 1.6) * 0.2,
+      };
     }
 
     case 'vFormation': {
-      // Offsets baked into spawnX; maintain formation while descending
-      return { ...e, x: e.spawnX, y: baseY, t };
+      return { ...updated, x: updated.spawnX, y: baseY, t };
     }
+
     case 'roguePath': {
-      e.t += dt;
-      e.x = e.spawnX + Math.sin(e.t * 2) * 100;
-      e.y += e.speed * 50 * dt;
-      return e;
+      const newT = updated.t + dt;
+      const screenProgress = updated.y / bounds.height;
+      
+      const speedMultiplier = screenProgress < 0.10 ? 20 : 220;
+      const newY = updated.y + updated.speed * speedMultiplier * dt;
+
+      return {
+        ...updated,
+        t: newT,
+        x: updated.spawnX + Math.sin(newT) * 40,
+        y: newY,
+        rotation: Math.sin(newT * 2) * 0.15,
+      };
     }
-    case 'armoredDronePath': {
-      e.t += dt;
-      e.x = e.spawnX + Math.sin(e.t * 2) * 100;
-      e.y += e.speed * 50 * dt;
-      return e;
-    }
+
     case 'kamikazePath': {
-      e.t += dt;
-      e.x = e.spawnX + Math.sin(e.t * 2) * 100;
-      e.y += e.speed * 50 * dt;
-      return e;
+      const newT = updated.t + dt;
+      const HOMING = 4.0;
+
+      let dx = shipX - updated.x;
+      let dy = shipY - updated.y;
+      const len = Math.hypot(dx, dy) || 1;
+      
+      dx /= len;
+      dy /= len;
+
+      return {
+        ...updated,
+        t: newT,
+        x: updated.x + dx * updated.speed * 50 * dt * HOMING,
+        y: updated.y + dy * updated.speed * 50 * dt * HOMING,
+        rotation: Math.atan2(dy, dx),
+      };
+    }
+
+    case 'armoredDronePath': {
+      const newT = updated.t + dt;
+
+      return {
+        ...updated,
+        t: newT,
+        y: updated.y + updated.speed * 25 * dt,
+        x: updated.spawnX + Math.sin(newT * 0.8) * 30,
+        rotation: Math.sin(newT * 0.8) * 0.1,
+      };
+    }
+
+    case 'bossPath': {
+      const newT = updated.t + dt;
+      const targetY = bounds.height * 0.2;
+      const screenProgress = updated.y / bounds.height;
+      
+      let newY = updated.y;
+      if (screenProgress < 0.2) {
+        newY = updated.y + updated.speed * 30 * dt;
+      } else {
+        newY = targetY;
+      }
+      
+      const FOLLOW_SPEED = 80;
+      const dx = shipX - updated.x;
+      let newX = updated.x;
+      
+      if (Math.abs(dx) > 10) {
+        const direction = dx > 0 ? 1 : -1;
+        newX = updated.x + direction * FOLLOW_SPEED * dt;
+        
+        const halfWidth = updated.width / 2;
+        newX = Math.max(halfWidth + 20, Math.min(bounds.width - halfWidth - 20, newX));
+      }
+      
+      return {
+        ...updated,
+        t: newT,
+        x: newX,
+        y: newY,
+        rotation: Math.sin(newT * 0.5) * 0.05,
+      };
     }
 
     default:
-      return { ...e, y: baseY, t };
+      return { ...updated, y: baseY, t };
   }
 }

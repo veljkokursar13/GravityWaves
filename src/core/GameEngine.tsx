@@ -14,6 +14,7 @@ import GameOverScreen from "@/core/overlays/GameOverScreen";
 import Hud from "@/core/overlays/Hud";
 import ComboCounter from "@/core/overlays/ComboCounter";
 import PowerUpIndicator from "@/core/overlays/PowerUpIndicator";
+import BossIntro from "@/core/overlays/BossIntro";
 import JetFlames from "@/entities/ship/JetFlames";
 import JetEngineCircles from "@/entities/ship/JetEngineCircles";
 import LifeBar from "@/core/overlays/LifeBar";
@@ -24,11 +25,14 @@ import { EnemyManager } from "@/entities/enemies/enemyManager";
 import { WaveManager } from "@/entities/enemies/waveManager";
 import { WAVES } from "@/entities/enemies/waves";
 import EnemySprite from "@/entities/enemies/EnemySprite";
-import { detectBulletEnemyCollisions, detectShipEnemyCollisions } from "@/core/systems/collision";
+import { detectBulletEnemyCollisions, detectShipEnemyCollisions, detectGravityFieldEffects, detectEnemyBulletShipCollisions, type GravityField } from "@/core/systems/collision";
 import type { Enemy } from "@/entities/enemies/types";
 import WaveAnouncer from "@/core/overlays/WaveAnouncer";
 import ParticleExplosion from "@/entities/effects/ParticleExplosion";
+import KamikazeExplosionEffect from "@/entities/effects/KamikazeExplosionEffect";
 import { useAudio } from "@/hooks/useAudio";
+import { useEnemyBullets } from "@/entities/projectiles/useEnemyBullets";
+import EnemyBullets from "@/entities/projectiles/EnemyBullets";
 
 const BOTTOM_UI_HEIGHT = 80; // Reserved space at bottom for UI elements
 const START_OFFSET_FROM_BOTTOM = 50; // Starting distance from bottom UI
@@ -47,7 +51,7 @@ export default function GameEngine() {
                 await audio.stopMusic(); // Stop menu music
                 await audio.playMusic('galacticheartbeat', { loop: true, volume: 0.7 });
             } catch (error) {
-                console.warn('[GameEngine] Failed to play game music:', error);
+                // Silent fail - audio not critical
             }
         };
         
@@ -55,7 +59,7 @@ export default function GameEngine() {
         
         // Cleanup: stop game music when leaving
         return () => {
-            audio.stopMusic().catch(console.warn);
+            audio.stopMusic().catch(() => {});
         };
     }, []); // Empty deps - only run on mount/unmount
     
@@ -66,6 +70,7 @@ export default function GameEngine() {
     });
 
     const { bullets, updateBulletsRef, shoot, removeBullet } = useBulletsOptimized();
+    const { bullets: enemyBullets, updateBullets: updateEnemyBullets, shootStraight: shootEnemyBullet, shootAtPlayer: shootEnemyBulletAtPlayer, removeBullet: removeEnemyBullet } = useEnemyBullets();
     
     // Refs for game state
     const previousShipX = useRef<number>(width / 2);
@@ -82,7 +87,21 @@ export default function GameEngine() {
     interface Explosion { id: string; x: number; y: number; time: number; }
     const [explosions, setExplosions] = useState<Explosion[]>([]);
     
-    const spawnExplosion = useCallback((x: number, y: number) => {
+    // Kamikaze explosions (special effect)
+    interface KamikazeExplosion { id: string; x: number; y: number; time: number; }
+    const [kamikazeExplosions, setKamikazeExplosions] = useState<KamikazeExplosion[]>([]);
+    
+    // Gravity fields from kamikaze explosions
+    const [gravityFields, setGravityFields] = useState<GravityField[]>([]);
+    
+    // Drunk effect state (3 second duration when hit by gravity field)
+    const [drunkEffectEndTime, setDrunkEffectEndTime] = useState<number>(0);
+    const isDrunk = Date.now() < drunkEffectEndTime;
+    
+    // Track which gravity fields have already dealt damage (prevent multiple hits)
+    const hitGravityFields = useRef<Set<string>>(new Set());
+    
+    const spawnExplosion = useCallback((x: number, y: number, isKamikaze = false) => {
         const newExplosion: Explosion = {
             id: `exp-${Date.now()}-${Math.random()}`,
             x,
@@ -90,10 +109,32 @@ export default function GameEngine() {
             time: 0
         };
         setExplosions(prev => [...prev, newExplosion]);
+        
+        // Special kamikaze explosion effect
+        if (isKamikaze) {
+            const kamikazeExp: KamikazeExplosion = {
+                id: `kamikaze-${Date.now()}-${Math.random()}`,
+                x,
+                y,
+                time: 0
+            };
+            setKamikazeExplosions(prev => [...prev, kamikazeExp]);
+            
+            // Create gravity field
+            const field: GravityField = {
+                id: `gravity-${Date.now()}-${Math.random()}`,
+                x,
+                y,
+                radius: 0,
+                strength: 1.0,
+                time: 0
+            };
+            setGravityFields(prev => [...prev, field]);
+        }
     }, []);
     
     // Combo system
-    const { combo, multiplier, reset: resetCombo } = useCombo();
+    const { combo, multiplier, addKill: addComboKill, reset: resetCombo } = useCombo();
     
     // Double shot booster (activated at score > 300)
     const doubleShot = useShootBooster();
@@ -109,6 +150,8 @@ export default function GameEngine() {
     useEffect(() => {
         if (appState === 'game' && gameOverTriggered.current) {
             gameOverTriggered.current = false;
+            
+            // Reset ship position
             setShip({
                 ...initialShip,
                 x: width / 2,
@@ -116,7 +159,41 @@ export default function GameEngine() {
             });
             previousShipX.current = width / 2;
             velocityX.current = 0;
-            resetCombo(); // Reset combo (lives reset handled by store's resetGame)
+            
+            // Reset combo
+            resetCombo();
+            
+            // Reset wave manager to wave 1
+            if (waveManagerRef.current) {
+                waveManagerRef.current = new WaveManager(
+                    WAVES,
+                    (cfg: any) => enemyManagerRef.current?.spawn(cfg),
+                    ({ wave, untilMs }) => {
+                        setWaveOverlay({ visible: true, wave });
+                        if (waveHideTimerRef.current) clearTimeout(waveHideTimerRef.current);
+                        waveHideTimerRef.current = setTimeout(() => {
+                            setWaveOverlay((prev) => ({ ...prev, visible: false }));
+                            waveHideTimerRef.current = null;
+                        }, Math.max(250, untilMs));
+                    }
+                );
+                waveManagerRef.current.startWave(); // Start wave 1
+            }
+            
+            // Clear all enemies
+            if (enemyManagerRef.current) {
+                enemyManagerRef.current.enemies = [];
+            }
+            
+            // Reset boss intro flag
+            bossIntroShownRef.current = false;
+            setShowBossIntro(false);
+            
+            // Clear explosions and gravity fields
+            setExplosions([]);
+            setKamikazeExplosions([]);
+            setGravityFields([]);
+            hitGravityFields.current.clear();
         }
     }, [appState, width, height, resetCombo]);
 
@@ -143,12 +220,30 @@ export default function GameEngine() {
                 { width, height },
                 (enemy: Enemy, cause: "killed" | "passed") => {
                     if (cause === "killed") {
-                        const scoreByKind: Record<string, number> = { drone: 10, rogue: 15, heavy: 25, kamikaze: 12, boss: 200 };
+                        const scoreByKind: Record<string, number> = { drone: 10, rogue: 15, heavy: 25, kamikaze: 12, boss: 200, armoredDrone: 20 };
                         addScore(scoreByKind[enemy.kind] ?? 10);
+                        if(enemy.kind ==='drone'){
+                            addScore(10);
+                        } else if(enemy.kind ==='rogue'){
+                            addScore(30);
+                        } else if(enemy.kind ==='armoredDrone'){
+                            addScore(50);
+                        } else if(enemy.kind ==='kamikaze'){
+                            addScore(55);
+                        } else if(enemy.kind ==='boss'){
+                            addScore(200);
+                        }
                         addKills(1);
-                        spawnExplosion(enemy.x, enemy.y);
-                    } else if (cause === 'passed') {
-                        addScore(-100);
+                        addComboKill(); // Increment combo counter
+                        // Special explosion for kamikaze
+                        spawnExplosion(enemy.x, enemy.y, enemy.kind === 'kamikaze');
+                        // Extra shake for kamikaze
+                        if (enemy.kind === 'kamikaze') {
+                            shake(15);
+                        }
+                    } if (cause === 'passed' && enemy.kind !== 'boss') {
+
+                        addScore(-10);
                     }
                     waveManagerRef.current?.enemyRemoved();
                 }
@@ -191,9 +286,16 @@ export default function GameEngine() {
     // Callback to apply ship movement delta (called from gesture handler)
     const handleShipMove = useCallback((dx: number, dy: number) => {
         setShip((prev) => {
-            const sensitivity = 1.5;
+            // Reduce sensitivity when drunk effect is active
+            const sensitivity = isDrunk ? 0.75 : 1.5;
             let nx = prev.x + dx * sensitivity;
             let ny = prev.y + dy * sensitivity;
+            
+            // Add drunk wobble movement when effect is active
+            if (isDrunk) {
+                const wobble = Math.sin(Date.now() / 80) * 15;
+                nx += wobble;
+            }
             
             // Clamp to bounds (reserve bottom UI height and lock top at half screen)
             const halfW = prev.width / 2;
@@ -206,7 +308,7 @@ export default function GameEngine() {
             
             return { ...prev, x: nx, y: ny };
         });
-    }, [width, height]);
+    }, [width, height, isDrunk]);
     
     // Callback to update touch state (for auto-fire)
     const handleTouchState = useCallback((touching: boolean) => {
@@ -242,6 +344,7 @@ export default function GameEngine() {
         }
         
         updateBulletsRef(delta); // Updates ref only, not state
+        updateEnemyBullets(delta); // Update enemy bullets
         
         // Update explosions
         setExplosions(prev => {
@@ -250,11 +353,120 @@ export default function GameEngine() {
                 .filter(exp => exp.time < 0.5); // Remove after 500ms
         });
         
+        // Update kamikaze explosions
+        setKamikazeExplosions(prev => {
+            return prev
+                .map(exp => ({ ...exp, time: exp.time + dt }))
+                .filter(exp => exp.time < 0.5); // Remove after 500ms
+        });
+        
+        // Update gravity fields (expanding and fading)
+        setGravityFields(prev => {
+            const updated = prev
+                .map(f => {
+                    const newRadius = f.radius + 200 * dt; // Expand 200px/sec
+                    const maxRadius = 200; // Cap at 200px radius
+                    
+                    return {
+                        ...f,
+                        time: f.time + dt,
+                        radius: Math.min(newRadius, maxRadius), // Cap radius
+                        strength: Math.max(0, 1.0 - (f.time / 1.5)) // Fade over 1.5 seconds (faster)
+                    };
+                })
+                .filter(f => f.time < 1.5); // Remove after 1.5s (shorter duration)
+            
+            // Cleanup hit tracking when field expires
+            const activeFieldIds = new Set(updated.map(f => f.id));
+            const keysToRemove: string[] = [];
+            hitGravityFields.current.forEach(id => {
+                if (!activeFieldIds.has(id)) {
+                    keysToRemove.push(id);
+                }
+            });
+            keysToRemove.forEach(id => hitGravityFields.current.delete(id));
+            
+            return updated;
+        });
+        
+        // Check if ship enters gravity field (apply damage + drunk effect once per field)
+        if (gravityFields.length > 0 && !isInvincible) {
+            const gravityEffects = detectGravityFieldEffects(ship, gravityFields);
+            
+            if (gravityEffects.length > 0) {
+                // Sum all gravity pushes for movement
+                let totalPushX = 0, totalPushY = 0;
+                
+                for (const effect of gravityEffects) {
+                    totalPushX += effect.pushX;
+                    totalPushY += effect.pushY;
+                    
+                    // Check if this is a new gravity field hit
+                    const fieldId = effect.field.id;
+                    if (!hitGravityFields.current.has(fieldId)) {
+                        // Mark field as hit
+                        hitGravityFields.current.add(fieldId);
+                        
+                        // Apply damage (1 life lost)
+                        takeDamage();
+                        
+                        // Activate drunk effect for 2 seconds (reduced from 3)
+                        setDrunkEffectEndTime(Date.now() + 2000);
+                        
+                        // Camera shake
+                        shake(8);
+                    }
+                }
+                
+                // Apply repulsive push force
+                setShip(prev => {
+                    const halfW = prev.width / 2;
+                    const halfH = prev.height / 2;
+                    const minY = Math.max(height / 2, halfH);
+                    const maxY = height - BOTTOM_UI_HEIGHT - halfH;
+                    
+                    let newX = prev.x + totalPushX * dt;
+                    let newY = prev.y + totalPushY * dt;
+                    
+                    // Clamp to bounds
+                    newX = Math.max(halfW, Math.min(width - halfW, newX));
+                    newY = Math.max(minY, Math.min(maxY, newY));
+                    
+                    return { ...prev, x: newX, y: newY };
+                });
+            }
+        }
+        //hit by boss gravity implosion bomb
+        //hit by boss laser beam attack
         // Enemies update and collisions
         const em = enemyManagerRef.current;
         if (em) {
             // Move enemies
             em.update(dt, ship.x, ship.y);
+            
+            // Check for boss spawn and trigger intro (once per boss)
+            if (!bossIntroShownRef.current && em.enemies.some(e => e.kind === 'boss')) {
+                bossIntroShownRef.current = true;
+                setShowBossIntro(true);
+            }
+
+            // Enemy shooting logic (armored drones, heavy, and boss)
+            for (const enemy of em.enemies) {
+                if (enemy.shootCooldown !== undefined) {
+                    enemy.shootCooldown -= dt;
+                    if (enemy.shootCooldown <= 0) {
+                        // Boss shoots tracking bullets at player
+                        if (enemy.kind === 'boss') {
+                            shootEnemyBulletAtPlayer(enemy.x, enemy.y, enemy.height, ship.x, ship.y);
+                            enemy.shootCooldown = 0.8 + Math.random() * 0.4; // Faster shooting: 0.8-1.2s
+                        } else {
+                            // Armored drones and heavy shoot straight down
+                            shootEnemyBullet(enemy.x, enemy.y, enemy.height);
+                            enemy.shootCooldown = 1.2 + Math.random() * 0.8; // Random cooldown 1.2-2.0s
+                        }
+                    }
+                }
+            }
 
             // Bullet → enemy collisions
             const bulletHits = detectBulletEnemyCollisions(bullets, em.enemies);
@@ -265,6 +477,26 @@ export default function GameEngine() {
                 bulletsToRemove.add(bullet.id);
             }
             bulletsToRemove.forEach((id) => removeBullet(id));
+            
+            // Enemy bullets → ship collisions (respect invincibility)
+            if (!isInvincible) {
+                const enemyBulletHits = detectEnemyBulletShipCollisions(ship as any, enemyBullets);
+                const enemyBulletsToRemove = new Set<string>();
+                
+                for (const { bullet } of enemyBulletHits) {
+                    if (enemyBulletsToRemove.has(bullet.id)) continue;
+                    
+                    // Take damage (1 life per bullet)
+                    takeDamage();
+                    enemyBulletsToRemove.add(bullet.id);
+                    
+                    // Small shake on hit
+                    shake(5);
+                }
+                
+                // Remove enemy bullets that hit the ship
+                enemyBulletsToRemove.forEach((id) => removeEnemyBullet(id));
+            }
 
             // Ship → enemy collisions (respect invincibility)
             if (!isInvincible) {
@@ -286,11 +518,16 @@ export default function GameEngine() {
                 style={{ flex: 1, backgroundColor: 'transparent' }}
             >
                 <Group transform={[{ translateX: cameraOffset.x }, { translateY: cameraOffset.y }]}>
-                    {/* Render order: Bullets → Enemies → Explosions → Ship (top) */}
+                    {/* Render order: Bullets → Enemy Bullets → Enemies → Explosions → Ship (top) */}
                     
-                    {/* Bullets (background layer) */}
+                    {/* Player Bullets (background layer) */}
                     {bullets.map(bullet => (
                         <Bullet key={bullet.id} bullet={bullet} />
+                    ))}
+                    
+                    {/* Enemy Bullets (pink) */}
+                    {enemyBullets.map(bullet => (
+                        <EnemyBullets key={bullet.id} bullet={bullet} />
                     ))}
                     
                     {/* Enemies */}
@@ -301,6 +538,16 @@ export default function GameEngine() {
                     {/* Explosions */}
                     {explosions.map(exp => (
                         <ParticleExplosion 
+                            key={exp.id} 
+                            x={exp.x} 
+                            y={exp.y} 
+                            time={exp.time}
+                        />
+                    ))}
+                    
+                    {/* Kamikaze Explosions (special effect) */}
+                    {kamikazeExplosions.map(exp => (
+                        <KamikazeExplosionEffect 
                             key={exp.id} 
                             x={exp.x} 
                             y={exp.y} 
@@ -368,7 +615,13 @@ export default function GameEngine() {
             {/* Combo Counter */}
             {!isGameOver && <ComboCounter combo={combo} multiplier={multiplier} />}
             
-            {/* No wave announcer or boss intro here */}
+            {/* Boss Intro */}
+            {showBossIntro && (
+                <BossIntro 
+                    bossName="MOTHERSHIP"
+                    onComplete={() => setShowBossIntro(false)}
+                />
+            )}
 
             {/* Game Over Overlay - highest priority */}
             {isGameOver && <GameOverScreen />}

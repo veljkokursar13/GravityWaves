@@ -24,7 +24,7 @@ export class ExpoAudioBackend implements IAudioBackend {
       // ignore and fall through
     }
 
-    console.warn('[audio] expo-audio AudioPlayer not available');
+    // Audio not available on this platform
     return { __noop: true } as any;
   }
 
@@ -77,7 +77,7 @@ export async function configureAudioMode() {
       });
     }
   } catch (e) {
-    console.warn('[audio] failed to set audio mode', e);
+    // Silent fail - audio mode configuration not critical
   }
 }
 

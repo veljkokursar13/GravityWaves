@@ -45,7 +45,7 @@ export function AudioProvider(props: { children: React.ReactNode; preload?: Prel
         await new Promise(resolve => setTimeout(resolve, 500));
         await managerRef.current.playMusic('theyarehere', { loop: true, volume: 0.7 });
       } catch (error) {
-        console.warn('[AudioProvider] Auto-play failed:', error);
+        // Silent fail - audio not critical
       }
     };
     

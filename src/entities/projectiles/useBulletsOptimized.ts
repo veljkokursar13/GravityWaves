@@ -10,7 +10,7 @@ interface ShipBulletsHook {
   shoot: (shipX: number, shipY: number, shipHeight: number, doubleShot?: boolean) => void;
 }
 
-const BULLET_SPEED = 700;
+const BULLET_SPEED = 900; // Increased for more responsive feel
 const FIRE_RATE = 0.3;
 const BULLET_WIDTH = 8;
 const BULLET_HEIGHT = 16;
@@ -48,13 +48,17 @@ export const useBulletsOptimized = (): ShipBulletsHook => {
     bulletsRef.current = bullets;
   }, [bullets]);
   
-  // Sync ref to state periodically (10fps instead of 60fps)
+  // Sync ref to state at 60fps using requestAnimationFrame for smooth rendering
   useEffect(() => {
-    const interval = setInterval(() => {
-      setBullets([...bulletsRef.current]);
-    }, 100); // 10 times per second
+    let rafId: number;
     
-    return () => clearInterval(interval);
+    const syncState = () => {
+      setBullets([...bulletsRef.current]);
+      rafId = requestAnimationFrame(syncState);
+    };
+    
+    rafId = requestAnimationFrame(syncState);
+    return () => cancelAnimationFrame(rafId);
   }, []);
   
   const addBullet = useCallback((bullet: SpaceShipProjectile) => {

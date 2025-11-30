@@ -72,7 +72,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    zIndex: 100,
+    zIndex: 9998, // High z-index, just below AudioControls
+    elevation: 9998, // For Android
   },
   comboText: {
     fontFamily: 'Orbitron',

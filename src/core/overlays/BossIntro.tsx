@@ -98,7 +98,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    zIndex: 2000,
+    zIndex: 9997, // High z-index for boss intro overlay
+    elevation: 9997, // For Android
   },
   warningBar: {
     position: 'absolute',

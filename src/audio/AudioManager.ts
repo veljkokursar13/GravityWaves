@@ -44,8 +44,7 @@ export class AudioManager {
   async playMusic(id: SoundId, opts: PlayOpts = { loop: true }) {
     const meta = this.registry.get(id);
     if (!meta || meta.kind !== 'music') {
-      console.warn('[audio] unknown music id:', id);
-      return;
+      return; // Silent fail
     }
     if (this.music) await this.backend.stop(this.music).catch(() => {});
     this.music = await this.backend.createPlayer(meta.source, {
@@ -65,8 +64,7 @@ export class AudioManager {
   async playSfx(id: SoundId, opts: PlayOpts = {}) {
     const meta = this.registry.get(id);
     if (!meta || meta.kind !== 'sfx') {
-      console.warn('[audio] unknown sfx id:', id);
-      return;
+      return; // Silent fail
     }
     let pool = this.sfxPools.get(id);
     if (!pool) {

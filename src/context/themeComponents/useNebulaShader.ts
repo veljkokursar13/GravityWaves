@@ -84,14 +84,14 @@ half4 main(float2 fragCoord) {
   float noise_val = (n1 + n2 + n3) / 3.0;
   noise_val = pow(noise_val, 1.0 / u_density); // Density control
   
-  // Color temperature blending (cool to warm)
-  float3 coolColor1 = float3(0.05, 0.05, 0.15);  // Deep blue
-  float3 coolColor2 = float3(0.1, 0.05, 0.25);   // Cool purple
-  float3 coolColor3 = float3(0.05, 0.15, 0.35);  // Blue
+  // Color temperature blending (cool to warm) - increased brightness
+  float3 coolColor1 = float3(0.1, 0.1, 0.25);    // Deep blue (brighter)
+  float3 coolColor2 = float3(0.2, 0.1, 0.4);     // Cool purple (brighter)
+  float3 coolColor3 = float3(0.1, 0.25, 0.5);    // Blue (brighter)
   
-  float3 warmColor1 = float3(0.15, 0.05, 0.1);   // Deep magenta
-  float3 warmColor2 = float3(0.25, 0.1, 0.2);    // Warm purple
-  float3 warmColor3 = float3(0.3, 0.15, 0.1);    // Orange-red
+  float3 warmColor1 = float3(0.25, 0.1, 0.15);   // Deep magenta (brighter)
+  float3 warmColor2 = float3(0.4, 0.2, 0.3);     // Warm purple (brighter)
+  float3 warmColor3 = float3(0.5, 0.25, 0.15);   // Orange-red (brighter)
   
   // Interpolate between cool and warm palettes
   float3 color1 = mix(coolColor1, warmColor1, u_temperature);
@@ -102,8 +102,8 @@ half4 main(float2 fragCoord) {
   float3 finalColor = mix(color1, color2, noise_val);
   finalColor = mix(finalColor, color3, n2 * 0.5);
   
-  // Add brightness variation with density
-  float brightness = (0.2 + noise_val * 0.5) * u_density;
+  // Add brightness variation with density - increased overall brightness
+  float brightness = (0.4 + noise_val * 0.8) * u_density;
   finalColor *= brightness;
   
   // Add stars
@@ -116,7 +116,7 @@ half4 main(float2 fragCoord) {
   finalColor *= vignette;
   
   // Alpha with density control - increased visibility
-  float alpha = 0.6 + (u_density * 0.2);
+  float alpha = 0.8 + (u_density * 0.2);
   
   return half4(half3(finalColor), half(alpha));
 }
@@ -127,12 +127,10 @@ export const useNebulaShader = () => {
     try {
       const effect = Skia.RuntimeEffect.Make(nebulaShaderSource);
       if (!effect) {
-        console.error('[NebulaShader] Failed to compile shader');
         return null;
       }
       return effect;
     } catch (error) {
-      console.error('[NebulaShader] Shader compilation error:', error);
       return null;
     }
   }, []);

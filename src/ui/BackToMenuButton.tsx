@@ -2,10 +2,26 @@ import { Pressable, View, StyleSheet } from "react-native";
 import { Text as RNText } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts } from '@/hooks/useFonts';
+import { useAudio } from '@/hooks/useAudio';
 
 // Button with gradient border only; fill stays transparent until pressed
 export const BackToMenuButton = ({ children, onPress }: { children: React.ReactNode, onPress: () => void }) => {
   const { fontsLoaded } = useFonts();
+  const audio = useAudio();
+  
+  const handlePress = async () => {
+    // Stop game music and play menu music
+    try {
+      await audio.stopMusic();
+      await audio.playMusic('theyarehere', { loop: true, volume: 0.7 });
+    } catch (error) {
+      // Silent fail - audio not critical
+    }
+    
+    // Call original onPress handler
+    onPress();
+  };
+  
   return (
     <View style={styles.container}>
       <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.topEdge} />
@@ -13,7 +29,7 @@ export const BackToMenuButton = ({ children, onPress }: { children: React.ReactN
       <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }} style={styles.leftEdge} />
       <LinearGradient pointerEvents="none" colors={['#636363', '#a2ab58']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.rightEdge} />
 
-      <Pressable onPress={onPress} style={({ pressed }: { pressed: boolean }) => [styles.inner, pressed && styles.innerPressed]}>
+      <Pressable onPress={handlePress} style={({ pressed }: { pressed: boolean }) => [styles.inner, pressed && styles.innerPressed]}>
         <RNText style={styles.text}>{children}</RNText>
       </Pressable>
     </View>

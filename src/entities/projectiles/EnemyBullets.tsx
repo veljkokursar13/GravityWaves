@@ -2,13 +2,13 @@
 
 // Bullet rendering with enhanced glow and motion trail
 import { BlurMask, Group, Line } from '@shopify/react-native-skia';
-import type { SpaceShipProjectile } from './types';
+import type { EnemyProjectile } from './types';
 
-interface ShipBulletProps {
-  bullet: SpaceShipProjectile;
+interface EnemyBulletProps {
+  bullet: EnemyProjectile;
 }
 
-export default function ShipBullet({ bullet }: ShipBulletProps) {
+export default function EnemyBullets({ bullet }: EnemyBulletProps) {
   const x1 = bullet.x;
   const y1 = bullet.y;
 

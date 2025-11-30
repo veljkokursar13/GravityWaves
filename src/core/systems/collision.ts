@@ -1,7 +1,7 @@
 //collision detection system
 import type { Ship } from '../../entities/ship/types';
 import type { Enemy } from '../../entities/enemies/types';
-import type { SpaceShipProjectile } from '../../entities/projectiles/types';
+import type { SpaceShipProjectile, EnemyProjectile } from '../../entities/projectiles/types';
 
 // Generic entity type for collision detection
 interface CollisionEntity {
@@ -21,6 +21,26 @@ export type BulletEnemyCollision = {
     enemy: Enemy;
 }
 
+export type EnemyBulletShipCollision = {
+    bullet: EnemyProjectile;
+    ship: Ship;
+}
+
+export type GravityField = {
+    id: string;
+    x: number;
+    y: number;
+    radius: number; // Expanding radius
+    strength: number; // 0-1, fades over time
+    time: number;
+}
+
+export type GravityEffect = {
+    field: GravityField;
+    pushX: number;
+    pushY: number;
+}
+
 // AABB collision detection (assumes x/y are center points)
 export function detectShipEnemyCollisions(ship: Ship | null, enemies: Enemy[]): ShipEnemyCollision[] {
     if (!ship || !enemies.length) return [];
@@ -36,6 +56,37 @@ export function detectShipEnemyCollisions(ship: Ship | null, enemies: Enemy[]): 
     return collisions;
 }
 
+// Detect gravity field effects on ship (pushes ship away from explosion center)
+export function detectGravityFieldEffects(
+    ship: Ship,
+    fields: GravityField[]
+): GravityEffect[] {
+    if (!fields.length) return [];
+    
+    const effects: GravityEffect[] = [];
+    
+    for (const field of fields) {
+        const dx = ship.x - field.x;
+        const dy = ship.y - field.y;
+        const dist = Math.hypot(dx, dy);
+        
+        // Check if ship is within gravity field radius
+        if (dist < field.radius && dist > 0) {
+            // Push away from center (repulsive force)
+            // Stronger near center, weaker at edges
+            const forceMagnitude = field.strength * 300 * (1 - dist / field.radius);
+            const pushX = (dx / dist) * forceMagnitude;
+            const pushY = (dy / dist) * forceMagnitude;
+            
+            effects.push({ field, pushX, pushY });
+        }
+    }
+    
+    return effects;
+}
+
+//kamikaze explosion ring collision detection (removed - visual only)
+
 // Detect collisions between bullets and enemies
 export function detectBulletEnemyCollisions(
     bullets: SpaceShipProjectile[],
@@ -50,6 +101,24 @@ export function detectBulletEnemyCollisions(
             if (checkAABBCollision(bullet, enemy)) {
                 collisions.push({ bullet, enemy });
             }
+        }
+    }
+    
+    return collisions;
+}
+
+// Detect collisions between enemy bullets and ship
+export function detectEnemyBulletShipCollisions(
+    ship: Ship | null,
+    enemyBullets: EnemyProjectile[]
+): EnemyBulletShipCollision[] {
+    if (!ship || !enemyBullets.length) return [];
+    
+    const collisions: EnemyBulletShipCollision[] = [];
+    
+    for (const bullet of enemyBullets) {
+        if (checkAABBCollision(ship, bullet)) {
+            collisions.push({ bullet, ship });
         }
     }
     

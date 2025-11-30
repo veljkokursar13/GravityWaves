@@ -7,6 +7,12 @@ const enemyImageFor = (kind: Enemy['kind']) => {
       return require('../../assets/images/Drone.png');
     case 'rogue':
       return require('../../assets/images/rogue.png');
+      case 'kamikaze':
+        return require('../../assets/images/Kamikaze.png');
+        case 'armoredDrone':
+          return require('../../assets/images/ArmoredDrone.png');
+          case 'boss':
+            return require('../../assets/images/Boss.png');
     default:
       return require('../../assets/images/Drone.png');
   }
